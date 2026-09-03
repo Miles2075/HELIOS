@@ -25,5 +25,17 @@ def initialize_database():
         """
     )
 
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS document_pages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL,
+            page_number INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            FOREIGN KEY (document_id) REFERENCES documents(id)
+        )
+        """
+    )
+
     connection.commit()
     connection.close()
