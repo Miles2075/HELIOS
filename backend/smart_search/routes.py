@@ -2,6 +2,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from backend.core.database import get_connection
+
 
 router = APIRouter(
     prefix="/api/search",
@@ -37,9 +39,24 @@ async def upload_document(file: UploadFile = File(...)):
     with open(file_path, "wb") as output_file:
         output_file.write(contents)
 
+    connection = get_connection()
+
+    cursor = connection.execute(
+        """
+        INSERT INTO documents (filename, file_path)
+        VALUES (?, ?)
+        """,
+        (file.filename, str(file_path)),
+    )
+
+    document_id = cursor.lastrowid
+
+    connection.commit()
+    connection.close()
+
     return {
         "success": True,
-        "document_id": 1,
+        "document_id": document_id,
         "filename": file.filename,
         "message": "Document uploaded successfully",
     }
