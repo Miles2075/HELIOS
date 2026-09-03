@@ -45,7 +45,7 @@ async def upload_document(file: UploadFile = File(...)):
     if extension == ".pdf":
         extracted_pages = extract_text_by_page(file_path)
 
-    connection = get_connection()
+        connection = get_connection()
 
     cursor = connection.execute(
         """
@@ -56,6 +56,19 @@ async def upload_document(file: UploadFile = File(...)):
     )
 
     document_id = cursor.lastrowid
+
+    for page in extracted_pages:
+        connection.execute(
+            """
+            INSERT INTO document_pages (document_id, page_number, text)
+            VALUES (?, ?, ?)
+            """,
+            (
+                document_id,
+                page["page"],
+                page["text"],
+            ),
+        )
 
     connection.commit()
     connection.close()
