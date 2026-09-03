@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.core.database import get_connection
+from backend.smart_search.pdf_utils import extract_text_by_page
 
 
 router = APIRouter(
@@ -39,6 +40,11 @@ async def upload_document(file: UploadFile = File(...)):
     with open(file_path, "wb") as output_file:
         output_file.write(contents)
 
+    extracted_pages = []
+
+    if extension == ".pdf":
+        extracted_pages = extract_text_by_page(file_path)
+
     connection = get_connection()
 
     cursor = connection.execute(
@@ -55,8 +61,9 @@ async def upload_document(file: UploadFile = File(...)):
     connection.close()
 
     return {
-        "success": True,
-        "document_id": document_id,
-        "filename": file.filename,
-        "message": "Document uploaded successfully",
-    }
+    "success": True,
+    "document_id": document_id,
+    "filename": file.filename,
+    "pages_extracted": len(extracted_pages),
+    "message": "Document uploaded successfully",
+}
