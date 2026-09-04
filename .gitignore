@@ -26,3 +26,5 @@ uploads/
 
 # SQLite database
 backend/*.db
+
+backend/chroma_db/
