@@ -18,7 +18,7 @@ router = APIRouter(
 UPLOAD_DIR = Path("uploads/documents")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_DISTANCE_THRESHOLD = 0.8
+MAX_DISTANCE_THRESHOLD = 0.6
 
 
 @router.post("/upload")
