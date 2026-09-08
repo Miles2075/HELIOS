@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from extraction import extract_concepts, detect_relationships
+from graph_builder import build_graph, filter_graph
+from serialization import serialize_graph   
 from pydantic import BaseModel
 from typing import List
 
@@ -33,18 +36,10 @@ class BrainMapResponse(BaseModel):
 
 @app.post("/api/brainmap/generate", response_model=BrainMapResponse)
 def generate_brain_map(request: GenerateRequest):
-    dummy_nodes = [
-        Node(id="n1", label="Photosynthesis", type="concept"),
-        Node(id="n2", label="Chlorophyll", type="concept"),
-        Node(id="n3", label="Sunlight", type="concept"),
-    ]
-    dummy_edges = [
-        Edge(source="n1", target="n2", relationship="related_to"),
-        Edge(source="n1", target="n3", relationship="related_to"),
-    ]
-    return BrainMapResponse(
-        success=True,
-        map_id="dummy-map-001",
-        nodes=dummy_nodes,
-        edges=dummy_edges,
-    )
+    sample_text = "Mitochondria are the powerhouse of the cell. Chlorophyll absorbs sunlight during photosynthesis."
+    concepts = extract_concepts(sample_text)
+    relationships = detect_relationships(concepts)
+    graph = build_graph(concepts, relationships)
+    filtered = filter_graph(graph)
+    result = serialize_graph(filtered)
+    return result
