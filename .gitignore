@@ -23,3 +23,6 @@ Thumbs.db
 
 # Uploaded/generated files
 uploads/
+
+# Database
+*.db

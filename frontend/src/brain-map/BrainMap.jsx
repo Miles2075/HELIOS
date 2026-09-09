@@ -8,7 +8,7 @@ export default function BrainMap() {
     fetch("http://localhost:8001/api/brainmap/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_id: "test123" }),
+      body: JSON.stringify({ document_id: 1 }),
     })
       .then((res) => res.json())
       .then((data) => {
