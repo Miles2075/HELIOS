@@ -18,6 +18,7 @@ def filter_graph(graph, max_nodes: int = 50, max_edges: int = 150) -> "nx.Graph"
     top_edges = edges_sorted[:max_edges]
 
     filtered = graph.__class__()
+    filtered.add_nodes_from(graph.nodes(data=True))
     for source, target, data in top_edges:
         filtered.add_edge(source, target, **data)
 
