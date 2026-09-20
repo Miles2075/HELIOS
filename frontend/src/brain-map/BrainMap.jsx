@@ -17,6 +17,7 @@ export default function BrainMap() {
 
     setLoading(true);
     setError(null);
+    setSelectedNode(null);
 
     fetch("http://localhost:8001/api/brainmap/generate", {
       method: "POST",
