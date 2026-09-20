@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ForceGraph3D from "react-force-graph-3d";
+import "./BrainMap.css";
 
 export default function BrainMap() {
   const [documentId, setDocumentId] = useState("");
@@ -28,7 +29,7 @@ export default function BrainMap() {
         }
         return res.json();
       })
-            .then((data) => {
+      .then((data) => {
         if (data.nodes.length === 0) {
           setError("No concepts found for this document. It may not exist or may be empty.");
           setGraphData({ nodes: [], links: [] });
@@ -43,7 +44,7 @@ export default function BrainMap() {
         }));
         setGraphData({ nodes: data.nodes, links });
         setLoading(false);
-      })  
+      })
       .catch((err) => {
         setError(err.message);
         setLoading(false);
@@ -51,29 +52,30 @@ export default function BrainMap() {
   }
 
   return (
-    <div style={{ padding: "16px" }}>
-      <div style={{ marginBottom: "12px" }}>
+    <div className="brain-map">
+      <div className="brain-map-controls">
         <input
+          className="brain-map-input"
           type="number"
           placeholder="Enter document ID"
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
         />
-        <button onClick={handleGenerate} disabled={loading}>
+        <button className="brain-map-button" onClick={handleGenerate} disabled={loading}>
           {loading ? "Generating..." : "Generate Brain Map"}
         </button>
       </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-       
+      {error && <p className="brain-map-error">{error}</p>}
+
       {selectedNode && (
-        <div style={{ marginBottom: "12px", color: "white" }}>
+        <div className="brain-map-selected">
           <strong>Selected concept:</strong> {selectedNode.label} ({selectedNode.type})
         </div>
       )}
 
-      <div style={{ height: "600px" }}>
-                <ForceGraph3D
+      <div className="brain-map-graph">
+        <ForceGraph3D
           graphData={graphData}
           nodeLabel="label"
           nodeAutoColorBy="type"

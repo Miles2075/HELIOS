@@ -1,0 +1,58 @@
+.brain-map {
+  padding: 16px;
+  font-family: var(--sans);
+  color: var(--text);
+}
+
+.brain-map-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.brain-map-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 15px;
+}
+
+.brain-map-button {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.brain-map-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.brain-map-error {
+  color: #e5484d;
+  margin-bottom: 12px;
+}
+
+.brain-map-selected {
+  color: var(--text-h);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.brain-map-graph {
+  height: 600px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
