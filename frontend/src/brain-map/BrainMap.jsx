@@ -9,9 +9,11 @@ export default function BrainMap() {
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
-  function handleGenerate() {
+    function handleGenerate() {
     if (!documentId) {
       setError("Please enter a document ID.");
+      setGraphData({ nodes: [], links: [] });
+      setSelectedNode(null);
       return;
     }
 
@@ -57,8 +59,8 @@ export default function BrainMap() {
   return (
     <div className="brain-map">
       <div className="brain-map-controls">
-        <input
-          className="brain-map-input"
+                <input
+          className={`brain-map-input ${error ? "brain-map-input-error" : ""}`}
           type="number"
           placeholder="Enter document ID"
           value={documentId}
@@ -71,10 +73,14 @@ export default function BrainMap() {
 
       {error && <p className="brain-map-error">{error}</p>}
 
-      {selectedNode && (
+            {selectedNode ? (
         <div className="brain-map-selected">
           <strong>Selected concept:</strong> {selectedNode.label} ({selectedNode.type})
         </div>
+      ) : (
+        graphData.nodes.length > 0 && (
+          <p className="brain-map-hint">Click a node to see its details.</p>
+        )
       )}
 
       <div className="brain-map-graph">

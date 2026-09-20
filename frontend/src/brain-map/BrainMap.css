@@ -56,3 +56,14 @@
   border-radius: 8px;
   overflow: hidden;
 }
+
+.brain-map-input-error {
+  border-color: #e5484d;
+}
+
+.brain-map-hint {
+  color: var(--text);
+  margin-bottom: 12px;
+  font-style: italic;
+  opacity: 0.7;
+}
