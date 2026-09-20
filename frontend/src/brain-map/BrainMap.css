@@ -67,3 +67,24 @@
   font-style: italic;
   opacity: 0.7;
 }
+
+.brain-map-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-h);
+  border-radius: 50%;
+  animation: brain-map-spin 0.6s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@keyframes brain-map-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

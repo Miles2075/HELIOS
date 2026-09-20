@@ -66,8 +66,15 @@ export default function BrainMap() {
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
         />
-        <button className="brain-map-button" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : "Generate Brain Map"}
+                <button className="brain-map-button" onClick={handleGenerate} disabled={loading}>
+          {loading ? (
+            <>
+              <span className="brain-map-spinner"></span>
+              Generating...
+            </>
+          ) : (
+            "Generate Brain Map"
+          )}
         </button>
       </div>
 
