@@ -1,3 +1,11 @@
+/*
+ * Brain Map page styles.
+ * Uses HELIOS's shared theme variables (--bg, --text, --text-h, --border)
+ * from index.css, so this automatically respects light/dark mode and any
+ * future theme changes Krishi makes. Accent colors are intentionally left
+ * out for now — Krishi is making those theme-based separately.
+ */
+
 .brain-map {
   padding: 16px;
   font-family: var(--sans);
