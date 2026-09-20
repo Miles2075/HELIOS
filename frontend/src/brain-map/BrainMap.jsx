@@ -24,9 +24,11 @@ export default function BrainMap() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ document_id: Number(documentId) }),
     })
-      .then((res) => {
+            .then(async (res) => {
         if (!res.ok) {
-          throw new Error("Failed to generate brain map.");
+          const errorData = await res.json().catch(() => null);
+          const detail = errorData?.detail?.[0]?.msg || "Failed to generate brain map.";
+          throw new Error(detail);
         }
         return res.json();
       })
