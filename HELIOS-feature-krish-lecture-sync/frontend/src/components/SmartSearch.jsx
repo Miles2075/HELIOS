@@ -43,10 +43,22 @@ export default function SmartSearch({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  const quickPrompts =
-    activeDoc?.document_id === 2
-      ? ['What is photosynthesis?', 'Where does the Calvin Cycle occur?', 'What do chloroplasts contain?']
-      : ['What is a Mutex?', 'Explain virtual memory and TLB', 'What are the four deadlock conditions?']
+  const getQuickPrompts = (doc) => {
+    switch (doc?.document_id) {
+      case 2:
+        return ['What is photosynthesis?', 'Where does the Calvin Cycle occur?', 'What do chloroplasts contain?']
+      case 3:
+        return ['How does Backpropagation work?', 'Explain Gradient Descent & Adam', 'How does Dropout prevent overfitting?']
+      case 4:
+        return ['Why use B+ Trees for indexes?', 'How does Write-Ahead Logging (WAL) work?', 'What is Strict 2PL concurrency?']
+      case 5:
+        return ['Explain the TCP 3-Way Handshake', 'How does TCP BBR control congestion?', 'How does TLS 1.3 achieve 1-RTT?']
+      default:
+        return ['What is a Mutex?', 'Explain virtual memory and TLB', 'What are the four deadlock conditions?']
+    }
+  }
+
+  const quickPrompts = getQuickPrompts(activeDoc)
 
   const handleUpload = async (file) => {
     if (!file) return

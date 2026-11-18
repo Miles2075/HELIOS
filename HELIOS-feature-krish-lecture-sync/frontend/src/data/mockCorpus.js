@@ -42,9 +42,10 @@ export const MEMORY_SPARKS = [
 
 export const COURSES_MASTERY = [
   { code: 'CS-301', title: 'Operating Systems', progress: 82, chapter: 'Chapter 6: Concurrency & Locks' },
-  { code: 'CS-402', title: 'Machine Learning', progress: 45, chapter: 'Chapter 3: Gradient Descent' },
+  { code: 'CS-402', title: 'Machine Learning', progress: 64, chapter: 'Chapter 3: Gradient Descent & Loss' },
   { code: 'CS-510', title: 'Database Internals', progress: 90, chapter: 'Chapter 8: B+ Trees & WAL' },
-  { code: 'DS-204', title: 'Statistical Analysis', progress: 68, chapter: 'Chapter 5: Hypothesis Testing' },
+  { code: 'CS-305', title: 'Computer Networks', progress: 75, chapter: 'Chapter 4: TCP Handshake & BBR' },
+  { code: 'BIO-101', title: 'Cellular Biology', progress: 58, chapter: 'Chapter 5: Photosynthesis & Calvin' },
 ]
 
 export const INITIAL_DOCUMENTS = [
@@ -98,6 +99,93 @@ export const INITIAL_DOCUMENTS = [
         page: 45,
         heading: 'Calvin Cycle',
         text: 'The Calvin Cycle occurs in the chloroplast stroma and uses ATP and NADPH from light-dependent reactions to fix atmospheric CO2 into organic sugars via the enzyme RuBisCO.',
+      },
+    ],
+  },
+  {
+    document_id: 3,
+    filename: 'Machine_Learning_Foundations.pdf',
+    pages: 56,
+    ingested: true,
+    subject: 'CS-402',
+    sections: [
+      {
+        page: 12,
+        heading: 'Gradient Descent & Loss Landscapes',
+        text: 'Gradient descent is an iterative optimization algorithm that calculates the gradient of the loss function with respect to model parameters and updates weights in the negative gradient direction. Stochastic Gradient Descent (SGD) and Adam dynamically scale step sizes to accelerate convergence across complex loss surfaces.',
+      },
+      {
+        page: 24,
+        heading: 'Deep Neural Networks & Backpropagation',
+        text: 'Deep neural networks learn hierarchical representations through stacked layers of linear transformations and non-linear activation functions (ReLU, GELU). Backpropagation applies the multivariate chain rule of calculus in reverse from the output layer to efficiently propagate loss gradients to all hidden layers.',
+      },
+      {
+        page: 38,
+        heading: 'Overfitting, Regularization & Dropout',
+        text: 'Overfitting occurs when a high-capacity model memorizes training noise instead of generalizable patterns. Regularization techniques including L2 weight decay, Dropout (randomly zeroing unit activations during training), data augmentation, and early stopping constrain hypothesis complexity.',
+      },
+      {
+        page: 51,
+        heading: 'Transformers & Self-Attention',
+        text: 'The Transformer architecture replaces recurrent architectures with multi-head self-attention. Self-attention computes attention weights via scaled dot-product between Query and Key matrices, routing information from Value vectors to capture long-range contextual dependencies across tokens.',
+      },
+    ],
+  },
+  {
+    document_id: 4,
+    filename: 'Database_Internals_and_Storage.pdf',
+    pages: 68,
+    ingested: true,
+    subject: 'CS-510',
+    sections: [
+      {
+        page: 15,
+        heading: 'B+ Trees & Disk Page Layouts',
+        text: 'B+ Trees are self-balancing search trees optimized for block storage. All keys and records reside in ordered leaf nodes linked by sibling pointers for high-throughput range scans, while internal nodes maintain high fan-out ratios to minimize disk I/O seek operations.',
+      },
+      {
+        page: 29,
+        heading: 'Write-Ahead Logging (WAL) & ARIES Recovery',
+        text: 'Write-Ahead Logging (WAL) ensures durability and atomicity by requiring that log records describing state transitions be flushed to non-volatile disk before dirty database pages are written to tables. The ARIES recovery algorithm utilizes Analysis, Redo, and Undo phases.',
+      },
+      {
+        page: 44,
+        heading: 'Concurrency Control & Strict Two-Phase Locking',
+        text: 'Concurrency control guarantees serializability and data integrity. Strict Two-Phase Locking (SS2PL) acquires shared locks for reads and exclusive locks for writes, holding all locks until transaction commit or abort to prevent cascading rollbacks.',
+      },
+      {
+        page: 60,
+        heading: 'Log-Structured Merge (LSM) Trees & Compaction',
+        text: 'Log-Structured Merge (LSM) Trees optimize write-heavy database workloads. Incoming writes are appended to an in-memory MemTable and flushed sequentially to immutable Sorted String Tables (SSTables) on disk, with background compaction merging SSTables.',
+      },
+    ],
+  },
+  {
+    document_id: 5,
+    filename: 'Computer_Networks_and_Protocols.pdf',
+    pages: 52,
+    ingested: true,
+    subject: 'CS-305',
+    sections: [
+      {
+        page: 16,
+        heading: 'TCP 3-Way Handshake & Reliable Delivery',
+        text: 'The Transmission Control Protocol (TCP) establishes reliable stream communication using a 3-Way Handshake (SYN, SYN-ACK, ACK). Sequence and acknowledgment numbers track packet ordering, while sliding window flow control prevents fast senders from overwhelming slow receivers.',
+      },
+      {
+        page: 28,
+        heading: 'TCP Congestion Control & BBR',
+        text: 'TCP Congestion Control prevents network collapse through algorithms like Slow Start, Congestion Avoidance, Fast Retransmit, and Fast Recovery. Modern congestion control protocols like TCP BBR (Bottleneck Bandwidth and RTT) measure physical bandwidth directly.',
+      },
+      {
+        page: 40,
+        heading: 'DNS Resolution & Hierarchical Caching',
+        text: 'The Domain Name System (DNS) is a distributed hierarchical naming database. Resolvers query Root DNS servers, Top-Level Domain (TLD) servers, and Authoritative Name Servers to translate human-readable domain names into IP addresses, utilizing Time-To-Live (TTL) caching.',
+      },
+      {
+        page: 49,
+        heading: 'Transport Layer Security (TLS 1.3)',
+        text: 'Transport Layer Security (TLS 1.3) encrypts Internet traffic and authenticates endpoints. It reduces the cryptographic handshake to a single round-trip (1-RTT) using Elliptic-Curve Diffie-Hellman Key Exchange (ECDHE) to deliver forward secrecy.',
       },
     ],
   },
@@ -279,6 +367,166 @@ export const QUIZ_BANK = {
       },
     ],
   },
+  3: {
+    mcq: [
+      {
+        question: 'What mathematical principle powers the backward pass in training deep neural networks?',
+        options: {
+          A: 'L’Hôpital’s Rule',
+          B: 'Multivariate Chain Rule of Calculus',
+          C: 'Bayes Theorem of Conditional Probability',
+          D: 'Taylor Series Polynomial Expansion',
+        },
+        correct_answer: 'B',
+        explanation: 'Backpropagation propagates error gradients backward from the loss function using the multivariate chain rule.',
+      },
+      {
+        question: 'Which mechanism prevents overfitting by randomly zeroing unit activations during training?',
+        options: {
+          A: 'Batch Normalization',
+          B: 'Dropout',
+          C: 'Gradient Clipping',
+          D: 'Data Quantization',
+        },
+        correct_answer: 'B',
+        explanation: 'Dropout forces the network to learn redundant representations by deactivating random units with probability p.',
+      },
+      {
+        question: 'In the Transformer architecture, what three matrix projections compute self-attention?',
+        options: {
+          A: 'Weights, Biases, Gradients',
+          B: 'Queries, Keys, Values',
+          C: 'Inputs, Targets, Errors',
+          D: 'Priors, Likelihoods, Posteriors',
+        },
+        correct_answer: 'B',
+        explanation: 'Scaled dot-product attention computes softmax(Q * K^T / sqrt(d_k)) * V using Query, Key, and Value matrices.',
+      },
+    ],
+    true_false: [
+      {
+        question: 'Stochastic Gradient Descent computes loss gradients over the entire training set in each step.',
+        options: { A: 'True', B: 'False' },
+        correct_answer: 'B',
+        explanation: 'Standard Batch Gradient Descent uses the entire dataset; SGD updates weights using a single sample or mini-batch.',
+      },
+      {
+        question: 'L2 regularization penalizes the squared magnitude of weights to discourage extreme parameter values.',
+        options: { A: 'True', B: 'False' },
+        correct_answer: 'A',
+        explanation: 'L2 regularization (weight decay) adds lambda * ||w||^2 to the loss function.',
+      },
+    ],
+    flashcard: [
+      {
+        question: 'Gradient Descent',
+        correct_answer: 'Optimization algorithm that minimizes loss by stepping in the negative gradient direction.',
+        explanation: 'Core learning engine for modern neural networks (Machine_Learning_Foundations.pdf, p. 12).',
+      },
+      {
+        question: 'Self-Attention',
+        correct_answer: 'Attention mechanism routing token representations based on pairwise similarity across sequences.',
+        explanation: 'Replaces recurrence in Transformer models (p. 51).',
+      },
+      {
+        question: 'Regularization',
+        correct_answer: 'Techniques (L1, L2, Dropout) used to prevent models from overfitting training noise.',
+        explanation: 'Balances the bias-variance tradeoff (p. 38).',
+      },
+    ],
+  },
+  4: {
+    mcq: [
+      {
+        question: 'Why are all database leaf nodes linked by sibling pointers in a B+ Tree?',
+        options: {
+          A: 'To allow circular memory hashing',
+          B: 'To execute sequential range scans without traversing parent nodes',
+          C: 'To prevent index key fragmentation completely',
+          D: 'To disable table locks during concurrent writes',
+        },
+        correct_answer: 'B',
+        explanation: 'Sibling pointers allow fast linear range scans across leaf pages once the start key is located.',
+      },
+      {
+        question: 'What core requirement does Write-Ahead Logging (WAL) enforce before modifying table pages on disk?',
+        options: {
+          A: 'All indexes must be reconstructed from scratch',
+          B: 'Log records must be written and flushed to disk before dirty database pages are written',
+          C: 'Transactions must wait for full table garbage collection',
+          D: 'The database must switch to read-only replica mode',
+        },
+        correct_answer: 'B',
+        explanation: 'The WAL protocol ensures durability and crash-recoverability by guaranteeing logs precede disk page writes.',
+      },
+    ],
+    true_false: [
+      {
+        question: 'In Strict Two-Phase Locking (SS2PL), exclusive locks are held until transaction commit.',
+        options: { A: 'True', B: 'False' },
+        correct_answer: 'A',
+        explanation: 'Holding locks until transaction termination guarantees strict serializability and avoids cascading rollbacks.',
+      },
+    ],
+    flashcard: [
+      {
+        question: 'Write-Ahead Log (WAL)',
+        correct_answer: 'Append-only disk log guaranteeing durability and atomic rollback recovery (ARIES).',
+        explanation: 'Must be flushed prior to table page writes (Database_Internals.pdf, p. 29).',
+      },
+      {
+        question: 'B+ Tree',
+        correct_answer: 'Self-balancing high fan-out tree where all data resides in linked leaf nodes for fast range scans.',
+        explanation: 'Standard index structure in relational databases (p. 15).',
+      },
+    ],
+  },
+  5: {
+    mcq: [
+      {
+        question: 'What three packet flags establish a reliable connection during the TCP Handshake?',
+        options: {
+          A: 'FIN, FIN-ACK, ACK',
+          B: 'SYN, SYN-ACK, ACK',
+          C: 'RST, PSH, URG',
+          D: 'HELLO, OFFER, ACK',
+        },
+        correct_answer: 'B',
+        explanation: 'TCP uses SYN -> SYN-ACK -> ACK to synchronize sequence numbers and establish bidirectional streams.',
+      },
+      {
+        question: 'How does TLS 1.3 achieve 1-RTT handshake latency compared to older TLS versions?',
+        options: {
+          A: 'It sends symmetric keys completely unencrypted in plaintext',
+          B: 'The client sends its Diffie-Hellman key share in the very first ClientHello message',
+          C: 'It eliminates digital certificates entirely',
+          D: 'It requires pre-shared master keys hardcoded on every device',
+        },
+        correct_answer: 'B',
+        explanation: 'TLS 1.3 speculatively includes Key Share parameters in the ClientHello, completing encryption negotiation in 1 RTT.',
+      },
+    ],
+    true_false: [
+      {
+        question: 'TCP Congestion Control relies solely on physical receiver buffer size.',
+        options: { A: 'True', B: 'False' },
+        correct_answer: 'B',
+        explanation: 'Flow control manages receiver buffer size; Congestion Control manages network path capacity (cwnd).',
+      },
+    ],
+    flashcard: [
+      {
+        question: 'TCP 3-Way Handshake',
+        correct_answer: 'SYN -> SYN-ACK -> ACK sequence synchronizing stream numbers and establishing reliable sockets.',
+        explanation: 'Fundamental connection mechanism of TCP (Computer_Networks.pdf, p. 16).',
+      },
+      {
+        question: 'DNS Caching',
+        correct_answer: 'Temporary local storage of resolved domain-to-IP records bounded by Time-To-Live (TTL).',
+        explanation: 'Prevents overwhelming authoritative root name servers (p. 40).',
+      },
+    ],
+  },
 }
 
 export const BRAIN_MAPS = {
@@ -327,6 +575,69 @@ export const BRAIN_MAPS = {
       { source: 'light_reactions', target: 'calvin_cycle', relationship: 'supplies_ATP' },
       { source: 'calvin_cycle', target: 'rubisco', relationship: 'catalyzed_by' },
       { source: 'calvin_cycle', target: 'glucose', relationship: 'synthesizes' },
+    ],
+  },
+  3: {
+    success: true,
+    map_id: 303,
+    nodes: [
+      { id: 'deep_learning', label: 'Deep Learning', type: 'core', summary: 'Hierarchical representation learning with neural nets.' },
+      { id: 'gradient_descent', label: 'Gradient Descent', type: 'mechanism', summary: 'Iterative loss optimization along negative gradient.' },
+      { id: 'backprop', label: 'Backpropagation', type: 'mechanism', summary: 'Calculates gradients backward via chain rule.' },
+      { id: 'loss_function', label: 'Loss Function', type: 'concept', summary: 'Quantifies objective error between prediction and target.' },
+      { id: 'dropout', label: 'Dropout', type: 'mechanism', summary: 'Deactivates random units during training to prevent overfitting.' },
+      { id: 'transformers', label: 'Transformers', type: 'concept', summary: 'Self-attention architecture modeling token relationships.' },
+      { id: 'self_attention', label: 'Self-Attention', type: 'mechanism', summary: 'Scaled dot-product attention across Query, Key, Value.' },
+      { id: 'regularization', label: 'Regularization', type: 'concept', summary: 'Constrains model complexity to ensure generalization.' },
+    ],
+    edges: [
+      { source: 'deep_learning', target: 'gradient_descent', relationship: 'optimized_by' },
+      { source: 'deep_learning', target: 'transformers', relationship: 'includes' },
+      { source: 'gradient_descent', target: 'loss_function', relationship: 'minimizes' },
+      { source: 'gradient_descent', target: 'backprop', relationship: 'guided_by' },
+      { source: 'deep_learning', target: 'regularization', relationship: 'stabilized_by' },
+      { source: 'regularization', target: 'dropout', relationship: 'implemented_by' },
+      { source: 'transformers', target: 'self_attention', relationship: 'powered_by' },
+    ],
+  },
+  4: {
+    success: true,
+    map_id: 304,
+    nodes: [
+      { id: 'db_engine', label: 'Storage Engine', type: 'core', summary: 'Manages disk pages, index structures, and transactions.' },
+      { id: 'b_plus_tree', label: 'B+ Tree Index', type: 'mechanism', summary: 'High fan-out balanced tree with linked leaf nodes.' },
+      { id: 'wal', label: 'Write-Ahead Log', type: 'mechanism', summary: 'Appends redo/undo entries before updating table pages.' },
+      { id: 'aries', label: 'ARIES Recovery', type: 'concept', summary: 'Three-pass crash recovery ensuring ACID durability.' },
+      { id: 'two_pl', label: 'Strict 2PL', type: 'concept', summary: 'Two-phase locking preventing race conditions.' },
+      { id: 'lsm_tree', label: 'LSM Tree', type: 'hardware', summary: 'Sequential write-optimized storage with SSTables.' },
+    ],
+    edges: [
+      { source: 'db_engine', target: 'b_plus_tree', relationship: 'indexes_with' },
+      { source: 'db_engine', target: 'wal', relationship: 'logs_with' },
+      { source: 'wal', target: 'aries', relationship: 'enables' },
+      { source: 'db_engine', target: 'two_pl', relationship: 'synchronizes_via' },
+      { source: 'db_engine', target: 'lsm_tree', relationship: 'persists_via' },
+    ],
+  },
+  5: {
+    success: true,
+    map_id: 305,
+    nodes: [
+      { id: 'transport_layer', label: 'Transport Layer', type: 'core', summary: 'Host-to-host end-to-end communication multiplexing.' },
+      { id: 'tcp', label: 'TCP Protocol', type: 'concept', summary: 'Connection-oriented reliable stream transport.' },
+      { id: 'handshake', label: '3-Way Handshake', type: 'mechanism', summary: 'SYN, SYN-ACK, ACK connection establishment.' },
+      { id: 'congestion_control', label: 'Congestion Control', type: 'concept', summary: 'Adjusts cwnd window to prevent network bufferbloat.' },
+      { id: 'bbr', label: 'BBR Algorithm', type: 'mechanism', summary: 'Measures bandwidth and RTT to maximize throughput.' },
+      { id: 'dns', label: 'DNS System', type: 'hardware', summary: 'Hierarchical distributed domain-to-IP directory.' },
+      { id: 'tls_13', label: 'TLS 1.3', type: 'mechanism', summary: '1-RTT cryptographic forward secrecy session.' },
+    ],
+    edges: [
+      { source: 'transport_layer', target: 'tcp', relationship: 'provides' },
+      { source: 'tcp', target: 'handshake', relationship: 'initiates_via' },
+      { source: 'tcp', target: 'congestion_control', relationship: 'governed_by' },
+      { source: 'congestion_control', target: 'bbr', relationship: 'implemented_with' },
+      { source: 'transport_layer', target: 'tls_13', relationship: 'secured_by' },
+      { source: 'tcp', target: 'dns', relationship: 'queries_over' },
     ],
   },
 }
