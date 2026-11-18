@@ -30,11 +30,19 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
 
   if (!rows.length || !xCol || !yCol) return null
 
+  const cleanRows = rows.filter((r) => r && typeof r === 'object')
+
   if (chartType === 'pie') {
-    const slicesRaw = rows.slice(0, 10).map((r, i) => ({
-      label: String(r[xCol] ?? `Item ${i + 1}`),
-      value: Math.max(0, Number(r[yCol]) || 0),
-    }))
+    // Aggregate yCol by distinct xCol categories
+    const catMap = {}
+    cleanRows.forEach((r) => {
+      const label = String(r[xCol] ?? 'Other')
+      const val = Math.max(0, Number(r[yCol]) || 0)
+      catMap[label] = (catMap[label] || 0) + val
+    })
+    const slicesRaw = Object.entries(catMap)
+      .slice(0, 10)
+      .map(([label, value]) => ({ label, value: Number(value.toFixed(2)) }))
     const total = slicesRaw.reduce((acc, s) => acc + s.value, 0) || 1
     const cx = 185
     const cy = 135
@@ -90,7 +98,7 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
           <text x={cx} y={cy + 13} textAnchor="middle" fontSize="9.5" fill="var(--text-secondary)">
             {hoveredIdx !== null && slices[hoveredIdx]
               ? `${xCol}: ${slices[hoveredIdx].label}`
-              : `${slices.length} slices`}
+              : `${slices.length} categories`}
           </text>
 
           {/* Legend */}
@@ -130,8 +138,32 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
   const innerW = width - pad.left - pad.right
   const innerH = height - pad.top - pad.bottom
 
-  const xVals = rows.map((r, i) => (typeof r[xCol] === 'number' ? r[xCol] : i))
-  const yVals = rows.map((r) => (typeof r[yCol] === 'number' ? r[yCol] : 0))
+  // Prepare chart items: if bar chart and many rows with recurring categories, aggregate mean Y
+  let chartItems = cleanRows
+  if (chartType === 'bar' && cleanRows.length > 20) {
+    const catTotals = {}
+    const catCounts = {}
+    cleanRows.forEach((r) => {
+      const label = String(r[xCol] ?? 'Other')
+      const val = Number(r[yCol])
+      if (!Number.isNaN(val)) {
+        catTotals[label] = (catTotals[label] || 0) + val
+        catCounts[label] = (catCounts[label] || 0) + 1
+      }
+    })
+    const uniqueCats = Object.keys(catTotals)
+    if (uniqueCats.length <= 15 && uniqueCats.length < cleanRows.length * 0.7) {
+      chartItems = uniqueCats.map((cat) => ({
+        [xCol]: cat,
+        [yCol]: Number((catTotals[cat] / catCounts[cat]).toFixed(2)),
+      }))
+    } else {
+      chartItems = cleanRows.slice(0, 20)
+    }
+  }
+
+  const xVals = chartItems.map((r, i) => (typeof r[xCol] === 'number' && !Number.isNaN(r[xCol]) ? r[xCol] : i))
+  const yVals = chartItems.map((r) => (typeof r[yCol] === 'number' && !Number.isNaN(r[yCol]) ? r[yCol] : 0))
 
   const minX = Math.min(...xVals)
   const maxX = Math.max(...xVals)
@@ -182,9 +214,9 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
 
         {/* Chart geometry */}
         {chartType === 'bar' ? (
-          rows.map((r, i) => {
-            const barW = Math.max(12, innerW / rows.length - 10)
-            const x = pad.left + (i / rows.length) * innerW + 5
+          chartItems.map((r, i) => {
+            const barW = Math.max(10, Math.min(36, innerW / chartItems.length - 8))
+            const x = pad.left + (i / chartItems.length) * innerW + 4
             const y = scaleY(yVals[i])
             const barH = Math.max(2, pad.top + innerH - y)
             const hovered = hoveredIdx === i
@@ -200,7 +232,7 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
                   y={y}
                   width={barW}
                   height={barH}
-                  rx={5}
+                  rx={4}
                   fill={hovered ? '#fcd34d' : '#f59e0b'}
                   fillOpacity={hovered ? 1 : 0.82}
                 />
@@ -208,11 +240,11 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
                   x={x + barW / 2}
                   y={pad.top + innerH + 14}
                   textAnchor="middle"
-                  fontSize="9.5"
+                  fontSize="9"
                   fill="#7f6271"
                   fontFamily="JetBrains Mono"
                 >
-                  {r[xCol]}
+                  {String(r[xCol] ?? '').slice(0, 10)}
                 </text>
               </g>
             )
@@ -221,7 +253,7 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
           <>
             {/* Connecting trend path */}
             <path
-              d={rows
+              d={chartItems
                 .map((_, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(xVals[i])} ${scaleY(yVals[i])}`)
                 .join(' ')}
               fill="none"
@@ -229,7 +261,7 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
               strokeWidth="2.2"
               strokeOpacity="0.65"
             />
-            {rows.map((_, i) => {
+            {chartItems.map((_, i) => {
               const cx = scaleX(xVals[i])
               const cy = scaleY(yVals[i])
               const hovered = hoveredIdx === i
@@ -249,7 +281,7 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
         )}
       </svg>
 
-      {hoveredIdx !== null && rows[hoveredIdx] && (
+      {hoveredIdx !== null && chartItems[hoveredIdx] && (
         <div
           className="absolute top-2 right-3 px-3 py-1.5 rounded-lg text-xs border font-mono-code"
           style={{
@@ -258,8 +290,8 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
             color: 'var(--text-primary)',
           }}
         >
-          {xCol}: <strong>{rows[hoveredIdx][xCol]}</strong> · {yCol}:{' '}
-          <strong style={{ color: 'var(--gold)' }}>{rows[hoveredIdx][yCol]}</strong>
+          {xCol}: <strong>{String(chartItems[hoveredIdx][xCol] ?? '—')}</strong> · {yCol}:{' '}
+          <strong style={{ color: 'var(--gold)' }}>{chartItems[hoveredIdx][yCol] ?? '—'}</strong>
         </div>
       )}
     </div>
@@ -279,6 +311,8 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
   const [yCol, setYCol] = useState('growth')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [tablePage, setTablePage] = useState(0)
+  const [pageSize, setPageSize] = useState(15)
 
   const fileInputRef = useRef(null)
 
@@ -302,6 +336,7 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
       const res = await analyzeDataset(ds)
       setAnalysis(res)
       applyChartCols(res)
+      setTablePage(0)
       onActivity?.(`Analyzed dataset '${ds.filename}'`, 'data', 'data-storyteller')
     } catch (err) {
       setError(err.message || 'Analysis failed')
@@ -339,7 +374,7 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
     setError('')
     setLoading(true)
     try {
-      const nextId = Math.max(...datasets.map((d) => d.dataset_id || 0), dataset.dataset_id || 0) + 1
+      const nextId = Math.max(0, ...datasets.map((d) => d.dataset_id || 0), dataset.dataset_id || 0) + 1
       const res = await uploadDataset(file, nextId)
       const nextDs = {
         dataset_id: res.dataset_id,
@@ -348,9 +383,17 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
       }
       setDataset(nextDs)
       setDatasets((prev) => [nextDs, ...prev.filter((d) => d.dataset_id !== nextDs.dataset_id)])
-      await runAnalysis(nextDs)
+      setTablePage(0)
+      if (res.summary && res.statistics && res.columns) {
+        setAnalysis(res)
+        applyChartCols(res)
+        onActivity?.(`Uploaded & analyzed '${res.filename}'`, 'data', 'data-storyteller')
+      } else {
+        await runAnalysis(nextDs)
+      }
     } catch (err) {
       setError(err.message || 'Upload failed')
+    } finally {
       setLoading(false)
     }
   }
@@ -360,6 +403,12 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
   const numericCols = headers.filter((h) => rows.some((r) => typeof r[h] === 'number'))
   const xOptions = headers.length > 0 ? headers : numericCols
   const isLive = analysis?._mode === 'live' || backendOnline
+
+  const activeMetric =
+    (yCol && analysis?.statistics?.by_column?.[yCol])
+      ? yCol
+      : (analysis?.statistics?.primary_column || numericCols[0] || '')
+  const activeStats = (activeMetric && analysis?.statistics?.by_column?.[activeMetric]) || analysis?.statistics || {}
 
   return (
     <div className="flex flex-col gap-5 pb-6">
@@ -480,29 +529,29 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
             </div>
 
             <div className="helios-card p-4">
-              <div className="text-[11px] uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Mean ({analysis.statistics.primary_column})
+              <div className="text-[11px] uppercase font-bold tracking-wider truncate" style={{ color: 'var(--text-muted)' }}>
+                Mean ({activeMetric || 'Metric'})
               </div>
               <div className="mt-1 text-xl font-extrabold" style={{ color: 'var(--accent-bright)' }}>
-                {analysis.statistics.mean}
+                {activeStats.mean ?? '—'}
               </div>
             </div>
 
             <div className="helios-card p-4">
-              <div className="text-[11px] uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Median
+              <div className="text-[11px] uppercase font-bold tracking-wider truncate" style={{ color: 'var(--text-muted)' }}>
+                Median ({activeMetric || 'Metric'})
               </div>
               <div className="mt-1 text-xl font-extrabold" style={{ color: 'var(--gold)' }}>
-                {analysis.statistics.median}
+                {activeStats.median ?? '—'}
               </div>
             </div>
 
             <div className="helios-card p-4">
-              <div className="text-[11px] uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Range
+              <div className="text-[11px] uppercase font-bold tracking-wider truncate" style={{ color: 'var(--text-muted)' }}>
+                Range ({activeMetric || 'Metric'})
               </div>
               <div className="mt-1 text-xl font-extrabold" style={{ color: 'var(--emerald)' }}>
-                {analysis.statistics.min} – {analysis.statistics.max}
+                {activeStats.min != null && activeStats.max != null ? `${activeStats.min} – ${activeStats.max}` : '—'}
               </div>
             </div>
           </div>
@@ -606,51 +655,117 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
               </div>
 
               <div className="helios-card p-5 flex-1">
-                <div
-                  className="text-[11px] font-bold tracking-[0.14em] uppercase flex items-center gap-1.5 mb-3"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <Table2 className="w-3.5 h-3.5" />
-                  COLUMN PROFILING &amp; PREVIEW ({rows.length} ROWS)
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div
+                    className="text-[11px] font-bold tracking-[0.14em] uppercase flex items-center gap-1.5"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <Table2 className="w-3.5 h-3.5" />
+                    COLUMN PROFILING &amp; PREVIEW ({rows.length} ROWS)
+                  </div>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <span>
+                      {rows.length === 0 ? 0 : tablePage * pageSize + 1}–{Math.min((tablePage + 1) * pageSize, rows.length)} of {rows.length}
+                    </span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value))
+                        setTablePage(0)
+                      }}
+                      className="px-2 py-0.5 rounded border text-[11px] outline-none"
+                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={15}>15</option>
+                      <option value={30}>30</option>
+                      <option value={60}>60</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={tablePage === 0}
+                      onClick={() => setTablePage((p) => Math.max(0, p - 1))}
+                      className="px-2 py-0.5 rounded border disabled:opacity-30 cursor-pointer"
+                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                    >
+                      ‹
+                    </button>
+                    <span>
+                      {tablePage + 1}/{Math.max(1, Math.ceil(rows.length / pageSize))}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={(tablePage + 1) * pageSize >= rows.length}
+                      onClick={() => setTablePage((p) => p + 1)}
+                      className="px-2 py-0.5 rounded border disabled:opacity-30 cursor-pointer"
+                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                    >
+                      ›
+                    </button>
+                  </div>
                 </div>
 
                 {analysis.columns && (
                   <div className="mb-3 flex flex-wrap gap-1.5">
-                    {Object.entries(analysis.columns).map(([col, info]) => (
-                      <span
-                        key={col}
-                        className="font-mono-code text-[10px] px-2 py-1 rounded-lg border"
-                        style={{
-                          background: 'var(--bg-card-elevated)',
-                          borderColor: 'var(--border-subtle)',
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        <strong style={{ color: 'var(--accent-bright)' }}>{col}</strong> ·{' '}
-                        {info.data_type} · {info.unique_values} uniq
-                        {info.missing_values > 0 ? ` · ${info.missing_values} null` : ''}
-                      </span>
-                    ))}
+                    {Object.entries(analysis.columns).map(([col, info]) => {
+                      const isNumeric = numericCols.includes(col)
+                      const isY = col === yCol
+                      const isX = col === xCol
+                      return (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => {
+                            if (isNumeric) setYCol(col)
+                            else setXCol(col)
+                          }}
+                          className="font-mono-code text-[10px] px-2 py-1 rounded-lg border text-left cursor-pointer transition-colors"
+                          style={{
+                            background: isY ? 'var(--accent-soft)' : isX ? 'var(--gold-soft)' : 'var(--bg-card-elevated)',
+                            borderColor: isY ? 'var(--accent-bright)' : isX ? 'var(--gold)' : 'var(--border-subtle)',
+                            color: isY ? 'var(--accent-bright)' : isX ? 'var(--gold)' : 'var(--text-secondary)',
+                          }}
+                          title={`Click to set as ${isNumeric ? 'Y axis metric' : 'X axis'}`}
+                        >
+                          <strong>{col}</strong> {isY ? '(Y)' : isX ? '(X)' : ''} ·{' '}
+                          {info.data_type} · {info.unique_values} uniq
+                          {info.missing_values > 0 ? ` · ${info.missing_values} null` : ''}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
 
-                <div className="overflow-x-auto max-h-[210px]">
+                <div className="overflow-x-auto max-h-[220px]">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         {headers.map((h) => (
-                          <th key={h} className="py-2 pr-3 font-mono-code font-semibold" style={{ color: 'var(--accent-bright)' }}>
-                            {h}
+                          <th
+                            key={h}
+                            onClick={() => {
+                              if (numericCols.includes(h)) setYCol(h)
+                              else setXCol(h)
+                            }}
+                            className="py-2 pr-3 font-mono-code font-semibold cursor-pointer select-none hover:underline"
+                            style={{ color: h === yCol ? 'var(--accent-bright)' : h === xCol ? 'var(--gold)' : 'var(--text-primary)' }}
+                            title="Click to select for charts"
+                          >
+                            {h} {h === yCol ? '▲ (Y)' : h === xCol ? '▲ (X)' : ''}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.slice(0, 8).map((r, idx) => (
+                      {rows.slice(tablePage * pageSize, (tablePage + 1) * pageSize).map((r, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid rgba(51, 30, 42, 0.45)' }}>
                           {headers.map((h) => (
                             <td key={h} className="py-1.5 pr-3 font-mono-code" style={{ color: 'var(--text-secondary)' }}>
-                              {r[h]}
+                              {r[h] === null || r[h] === undefined ? (
+                                <span className="opacity-35 italic font-sans text-[10px]">null</span>
+                              ) : (
+                                String(r[h])
+                              )}
                             </td>
                           ))}
                         </tr>

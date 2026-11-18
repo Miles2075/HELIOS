@@ -415,26 +415,45 @@ export async function uploadDataset(file, nextId) {
     throw new Error('Unsupported dataset format. Only CSV and XLSX files are accepted.')
   }
 
+  // Pre-parse CSV text if available
+  let localParsed = null
+  if (ext === 'csv') {
+    try {
+      const text = await file.text()
+      localParsed = parseCsvText(text)
+    } catch {
+      // ignore
+    }
+  }
+
   try {
     const formData = new FormData()
     formData.append('file', file)
     const res = await fetch('/api/data/upload', { method: 'POST', body: formData })
     if (res.ok) {
       const data = await res.json()
-      return { ...data, _mode: 'live' }
+      return {
+        ...data,
+        parsed: data.parsed || localParsed,
+        _mode: 'live',
+      }
     }
-  } catch {
-    // fallback below
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Upload failed')
+  } catch (err) {
+    if (err.message && !err.message.includes('fetch')) throw err
   }
 
-  const parsed = ext === 'csv' ? parseCsvText(await file.text()) : parseCsvText(SAMPLE_DATASET_CSV)
+  if (!localParsed) {
+    throw new Error('Backend offline. Please start FastAPI backend to parse XLSX files.')
+  }
 
   return {
     success: true,
     dataset_id: nextId,
     filename: file.name,
     message: 'Dataset uploaded successfully',
-    parsed,
+    parsed: localParsed,
     _mode: 'contract-preview',
   }
 }
@@ -450,8 +469,12 @@ export async function analyzeDataset(dataset) {
       const data = await res.json()
       return { ...data, _mode: 'live' }
     }
-  } catch {
-    // fallback below
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || `Analysis failed (${res.status})`)
+  } catch (err) {
+    if (err.message && !err.message.includes('fetch') && !dataset.parsed) {
+      throw err
+    }
   }
 
   const parsed = dataset.parsed || parseCsvText(SAMPLE_DATASET_CSV)
