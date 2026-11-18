@@ -1,98 +1,774 @@
 /*
  * Brain Map page styles.
- * Uses HELIOS's shared theme variables (--bg, --text, --text-h, --border)
- * from index.css, so this automatically respects light/dark mode and any
- * future theme changes Krishi makes. Accent colors are intentionally left
- * out for now — Krishi is making those theme-based separately.
+ * Built on Krishi's HELIOS theme variables (--primary, --secondary,
+ * --success, --card, --canvas, --bg, --border, --text, --text-heading,
+ * --text-muted, --shadow), so it matches whichever theme is active.
+ * Each variable has a Sakura Pink fallback for when it isn't set.
+ * The only hardcoded colour is the red used for errors.
  */
 
 .brain-map {
-  padding: 16px;
-  font-family: var(--sans);
-  color: var(--text);
+  --bm-core: var(--primary, #f58bd5);
+  --bm-linked: var(--secondary, #b298e7);
+  --bm-outer: var(--success, #9bd3b0);
+  --bm-bg: var(--bg, #181016);
+  --bm-card: var(--card, #2a1b24);
+  --bm-canvas: var(--canvas, #221720);
+  --bm-border: var(--border, rgba(245, 139, 213, 0.22));
+  --bm-border-strong: var(--border-strong, rgba(245, 139, 213, 0.42));
+  --bm-text: var(--text, #f9dce8);
+  --bm-heading: var(--text-heading, #fff0f5);
+  --bm-muted: var(--text-muted, #bd91aa);
+  --bm-shadow: var(--shadow, rgba(0, 0, 0, 0.2));
+  --bm-mono: var(--mono, ui-monospace, Consolas, monospace);
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  /* Fill the space it's given (the whole window in the test harness),
+     but never shrink below a usable size. */
+  height: 100%;
+  min-height: 640px;
+  padding: 20px 24px;
+  overflow: hidden;
+  box-sizing: border-box;
+  color: var(--bm-text);
+  text-align: left;
 }
 
-.brain-map-controls {
+/* ---------- Header ---------- */
+
+.bm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.bm-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bm-heading-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, var(--bm-outer) 35%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bm-outer) 12%, transparent);
+}
+
+.bm-heading-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: var(--bm-outer);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bm-heading-icon.large {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+}
+
+.bm-heading-icon.large svg {
+  width: 34px;
+  height: 34px;
+}
+
+.bm-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--bm-heading);
+}
+
+.bm-subtitle {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--bm-muted);
+}
+
+.bm-controls {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
-.brain-map-input {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-h);
-  font-family: var(--sans);
-  font-size: 15px;
+.bm-input {
+  width: 140px;
+  padding: 9px 12px;
+  border: 1px solid var(--bm-border);
+  border-radius: 10px;
+  background: var(--bm-bg);
+  color: var(--bm-heading);
+  font-family: inherit;
+  font-size: 14px;
 }
 
-.brain-map-button {
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-h);
-  font-family: var(--sans);
-  font-size: 15px;
+.bm-input:focus {
+  outline: none;
+  border-color: var(--bm-core);
+}
+
+.bm-input-error {
+  border-color: #e5484d;
+}
+
+.bm-button {
+  padding: 9px 16px;
+  border: 1px solid var(--bm-border);
+  border-radius: 10px;
+  background: var(--bm-card);
+  color: var(--bm-heading);
+  font-family: inherit;
+  font-size: 14px;
   cursor: pointer;
 }
 
-.brain-map-button:disabled {
+.bm-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.brain-map-error {
+.bm-primary {
+  border-color: transparent;
+  background: var(--bm-core);
+  color: var(--bm-bg);
+  font-weight: 600;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--bm-core) 35%, transparent);
+}
+
+.bm-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bm-core) 85%, white);
+}
+
+.bm-error {
+  margin: 0;
   color: #e5484d;
-  margin-bottom: 12px;
+  font-size: 14px;
 }
 
-.brain-map-selected {
-  color: var(--text-h);
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  display: inline-block;
+/* ---------- Layout ---------- */
+
+.bm-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 18px;
+  min-height: 0;
 }
 
-.brain-map-graph {
-  height: 600px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.brain-map-input-error {
-  border-color: #e5484d;
-}
-
-.brain-map-hint {
-  color: var(--text);
-  margin-bottom: 12px;
-  font-style: italic;
-  opacity: 0.7;
-}
-
-.brain-map-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--text-h);
-  border-radius: 50%;
-  animation: brain-map-spin 0.6s linear infinite;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-
-@keyframes brain-map-spin {
-  from {
-    transform: rotate(0deg);
+@media (max-width: 900px) {
+  .bm-main {
+    grid-template-columns: 1fr;
   }
+}
+
+/* Panel — same recipe as Krishi's glass panels */
+.bm-panel {
+  border: 1px solid var(--bm-border);
+  border-radius: 15px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bm-card) 88%, transparent),
+    color-mix(in srgb, var(--bm-canvas) 80%, transparent)
+  );
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.025),
+    0 12px 35px var(--bm-shadow);
+}
+
+/* ---------- Graph panel ---------- */
+
+.bm-graph-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bm-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--bm-text);
+}
+
+.bm-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bm-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.bm-dot.core { background: var(--bm-core); }
+.bm-dot.linked { background: var(--bm-linked); }
+.bm-dot.outer { background: var(--bm-outer); }
+
+.bm-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bm-icon-button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  background: var(--bm-card);
+  color: var(--bm-text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bm-icon-button:hover {
+  border-color: var(--bm-border-strong);
+  color: var(--bm-heading);
+}
+
+.bm-switch {
+  display: flex;
+  margin-right: 4px;
+  padding: 2px;
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  background: var(--bm-bg);
+}
+
+.bm-switch button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--bm-muted);
+  font-family: var(--bm-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bm-switch button.active {
+  background: var(--bm-card);
+  color: var(--bm-heading);
+}
+
+/* The dark map area inside the panel */
+.bm-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--bm-border);
+  border-radius: 12px;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      color-mix(in srgb, var(--bm-core) 6%, transparent),
+      transparent 60%
+    ),
+    var(--bm-bg);
+}
+
+.bm-svg {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.bm-svg:active {
+  cursor: grabbing;
+}
+
+/* Links */
+.bm-link {
+  stroke: var(--bm-muted);
+  stroke-opacity: 0.35;
+  transition: stroke-opacity 0.2s ease;
+}
+
+.bm-link.lit {
+  stroke: var(--bm-heading);
+  stroke-opacity: 0.75;
+}
+
+.bm-link.faded {
+  stroke-opacity: 0.07;
+}
+
+.bm-link-label {
+  fill: var(--bm-muted);
+  font-family: var(--bm-mono);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--bm-bg);
+  pointer-events: none;
+}
+
+/* Concepts: a coloured ring with a glowing centre and a name underneath */
+.bm-node {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.bm-node.faded {
+  opacity: 0.22;
+}
+
+.bm-node-ring {
+  fill: color-mix(in srgb, var(--bm-bg) 85%, transparent);
+}
+
+.bm-node.core .bm-node-ring { stroke: var(--bm-core); }
+.bm-node.linked .bm-node-ring { stroke: var(--bm-linked); }
+.bm-node.outer .bm-node-ring { stroke: var(--bm-outer); }
+
+.bm-node.core .bm-node-core { fill: var(--bm-core); filter: drop-shadow(0 0 4px var(--bm-core)); }
+.bm-node.linked .bm-node-core { fill: var(--bm-linked); filter: drop-shadow(0 0 4px var(--bm-linked)); }
+.bm-node.outer .bm-node-core { fill: var(--bm-outer); filter: drop-shadow(0 0 4px var(--bm-outer)); }
+
+.bm-node:hover .bm-node-ring {
+  fill: color-mix(in srgb, var(--bm-card) 90%, transparent);
+}
+
+/* Selected concept: a slowly turning dashed ring around it */
+.bm-node-orbit {
+  fill: none;
+  stroke: var(--bm-heading);
+  stroke-opacity: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bm-orbit 6s linear infinite;
+}
+
+@keyframes bm-orbit {
   to {
     transform: rotate(360deg);
   }
+}
+
+.bm-node-label {
+  fill: var(--bm-heading);
+  font-weight: 600;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bm-bg);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.bm-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bm-empty h2 {
+  margin: 8px 0 0;
+  font-size: 18px;
+  color: var(--bm-heading);
+}
+
+.bm-empty p {
+  margin: 0;
+  max-width: 320px;
+  font-size: 14px;
+  color: var(--bm-muted);
+}
+
+.bm-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bm-bg) 85%, transparent);
+  font-size: 12px;
+  color: var(--bm-muted);
+  pointer-events: none;
+}
+
+/* ---------- Concept Inspector ---------- */
+
+.bm-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bm-inspector-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bm-section-title {
+  color: var(--bm-outer);
+  font-family: var(--bm-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+}
+
+.bm-map-id {
+  font-family: var(--bm-mono);
+  font-size: 11px;
+  color: var(--bm-muted);
+}
+
+.bm-card {
+  padding: 16px;
+  border: 1px solid var(--bm-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bm-bg) 55%, transparent);
+}
+
+.bm-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-family: var(--bm-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.bm-badge.core { color: var(--bm-core); background: color-mix(in srgb, var(--bm-core) 14%, transparent); }
+.bm-badge.linked { color: var(--bm-linked); background: color-mix(in srgb, var(--bm-linked) 14%, transparent); }
+.bm-badge.outer { color: var(--bm-outer); background: color-mix(in srgb, var(--bm-outer) 14%, transparent); }
+
+.bm-card-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--bm-heading);
+  overflow-wrap: anywhere;
+}
+
+.bm-card-text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--bm-muted);
+}
+
+.bm-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.bm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--bm-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bm-bg) 45%, transparent);
+  color: var(--bm-heading);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bm-row:hover {
+  border-color: var(--bm-border-strong);
+}
+
+.bm-row-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bm-row-count {
+  font-family: var(--bm-mono);
+  font-size: 11px;
+  color: var(--bm-muted);
+}
+
+.bm-chip {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-family: var(--bm-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.bm-chip.core { color: var(--bm-core); background: color-mix(in srgb, var(--bm-core) 14%, transparent); }
+.bm-chip.linked { color: var(--bm-linked); background: color-mix(in srgb, var(--bm-linked) 14%, transparent); }
+.bm-chip.outer { color: var(--bm-outer); background: color-mix(in srgb, var(--bm-outer) 14%, transparent); }
+
+.bm-inspector-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--bm-border);
+  font-size: 12px;
+  color: var(--bm-muted);
+}
+
+/* ---------- Loading spinner ---------- */
+
+.bm-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 7px;
+  border: 2px solid color-mix(in srgb, var(--bm-bg) 40%, transparent);
+  border-top-color: var(--bm-bg);
+  border-radius: 50%;
+  vertical-align: middle;
+  animation: bm-spin 0.6s linear infinite;
+}
+
+@keyframes bm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Central concept (2D) ---------- */
+
+.bm-dot.hub {
+  background: var(--bm-heading);
+  box-shadow: 0 0 8px var(--bm-core);
+}
+
+.bm-hub-glow {
+  fill: var(--bm-core);
+  opacity: 0.12;
+  animation: bm-pulse 3s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.bm-hub-ring {
+  fill: var(--bm-bg);
+  stroke: var(--bm-core);
+  filter: drop-shadow(0 0 10px var(--bm-core));
+}
+
+.bm-hub-brain {
+  fill: none;
+  stroke: var(--bm-core);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.bm-hub-label {
+  font-weight: 700;
+}
+
+@keyframes bm-pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.1; }
+  50% { transform: scale(1.08); opacity: 0.2; }
+}
+
+.bm-badge.hub {
+  color: var(--bm-heading);
+  background: color-mix(in srgb, var(--bm-core) 30%, transparent);
+}
+
+/* ---------- 3D name tags ---------- */
+
+/* A see-through layer on top of the 3D map that holds the name tags. */
+.bm-tags3d {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bm-tag3d,
+.bm-hub3d {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform, opacity;
+}
+
+/* Each tag sits just below its concept's dot, and can be clicked. */
+.bm-tag3d {
+  pointer-events: auto;
+  cursor: pointer;
+  margin-top: 9px;
+  translate: -50% 0;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bm-bg) 70%, transparent);
+  color: var(--bm-heading);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.bm-tag3d.core { border-bottom: 1.5px solid var(--bm-core); }
+.bm-tag3d.linked { border-bottom: 1.5px solid var(--bm-linked); }
+.bm-tag3d.outer { border-bottom: 1.5px solid var(--bm-outer); }
+
+.bm-tag3d.selected {
+  background: var(--bm-core);
+  color: var(--bm-bg);
+  font-size: 12px;
+}
+
+/* The central concept: a glowing brain badge with its name. */
+.bm-hub3d {
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--bm-heading);
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.bm-hub-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 2px solid var(--bm-core);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--bm-core) 25%, var(--bm-bg)) 0%, var(--bm-bg) 75%);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--bm-core) 60%, transparent),
+    0 0 46px color-mix(in srgb, var(--bm-core) 25%, transparent);
+  animation: bm-hub-breathe 3s ease-in-out infinite;
+}
+
+.bm-hub-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: var(--bm-core);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bm-hub3d.selected .bm-hub-icon {
+  border-color: var(--bm-heading);
+}
+
+.bm-hub-name {
+  padding: 3px 10px;
+  border: 1px solid var(--bm-border-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bm-bg) 85%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes bm-hub-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--bm-core) 50%, transparent),
+      0 0 36px color-mix(in srgb, var(--bm-core) 20%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 24px color-mix(in srgb, var(--bm-core) 70%, transparent),
+      0 0 60px color-mix(in srgb, var(--bm-core) 30%, transparent);
+  }
+}
+
+/* Pinned to the edges of the map box: whatever is drawn inside can't
+   change the box's size. */
+.bm-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.bm-tag3d:hover {
+  background: color-mix(in srgb, var(--bm-card) 95%, transparent);
+}
+
+/* No text highlighting when clicking or double-clicking on the map. */
+.bm-canvas,
+.bm-canvas * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Stops touchpad gestures over the map from zooming the browser page. */
+.bm-canvas {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.bm-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--bm-border-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bm-card) 80%, transparent);
+  color: var(--bm-text);
+  font-size: 13px;
+}
+
+.bm-switch button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
