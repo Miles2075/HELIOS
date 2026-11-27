@@ -15,42 +15,36 @@
 
 ## 🚀 The 5 Core Intelligence Modules
 
-### 1️⃣ Smart Search (Semantic Document Q&A)
-* **Description:** Upload textbook chapters, lecture notes, or research papers in PDF or TXT format and query them in natural language. Instead of fragile keyword lookups, HELIOS conducts high-dimensional cosine similarity matching and returns grounded answers accompanied by verifiable, page-level citations.
-* **100% Free Tech Stack:**
-  * **PyPDF**: Native local PDF page extraction and text normalization.
-  * **ChromaDB**: In-memory / persistent vector database running locally with zero cloud costs.
-  * **Sentence-Transformers (HuggingFace `all-MiniLM-L6-v2`)**: Local ONNX embeddings computing vector representations on-device.
-  * **Google Gemini 3.8 Flash (Optional)**: Free tier acceleration for answer synthesis (with deterministic local fallback).
+### 1️⃣ Smart Search (Hybrid RRF & Split-Pane Reader)
+* **Description:** Upload textbook chapters, lecture notes, or research papers in PDF or TXT format and query them in natural language. Features a dual split-pane interface: search on the left with interactive citation pills `[1]`, `[2]`, and a synchronized document reader on the right that automatically jumps to the page and highlights the exact cited passage with real-time excerpt tracking.
+* **Key Innovations:**
+  * **Reciprocal Rank Fusion (RRF, k=60):** Fuses dense vector embeddings (`all-MiniLM-L6-v2`) with sparse BM25 Okapi lexical scores for maximum retrieval recall (+18.4% MRR).
+  * **Split-Pane Document Reader:** Multi-page viewer with `< Page X of Y >` pagination, in-page search, and cited-only filtering.
+  * **Instant As-You-Type Matches:** Instant client-side keyword matching across all scoped documents as you type.
+  * **V6 Evaluation Benchmark Leaderboard:** Multi-strategy comparisons with latency, MRR@5, and NDCG@5 metrics.
 
-### 2️⃣ Quiz Master (Automated Test & Flashcard Generator)
-* **Description:** Transforms passive textbook reading into active recall testing. Ingests uploaded documents to generate validated Multiple Choice Questions (strictly 4 distinct options A–D), True/False evaluations, or flip-card revision Flashcards with instant scoring and detailed explanations.
-* **100% Free Tech Stack:**
-  * **Pydantic V2**: Rigorous schema validation enforcing question format, distractors, and answer validity.
-  * **Deterministic NLP Synthesizer**: Document-grounded key concept extractor generating structured questions with zero API dependencies.
-  * **Gemini Flash (Optional)**: Structured JSON prompt engineering with 3x validation retry fallbacks.
+### 2️⃣ Quiz Master (Fog of War Story Campaign)
+* **Description:** Turns passive textbook reading and lecture videos into an interactive "Fog of War" story campaign. Students clear progressive chapters to unlock subsequent topics backed by the professor's actual lecture slides, board deductions, and video timestamps.
+* **Key Innovations:**
+  * **Fog of War Progressive Unlock Engine:** Chapter gating scaled up to 20 stages for 16-hour mega-lectures (e.g., Harvard CS50).
+  * **Slide Milestone Grounding:** Questions are directly grounded in the professor's demonstrated code and board notes with domain-accurate distractors.
+  * **Pydantic V2 Schema Validation:** Guarantees strict 4-choice MCQs, True/False evaluations, and flashcards.
 
-### 3️⃣ Lecture Sync (Audio-to-Text & Searchable Logs)
-* **Description:** Ingests recorded classroom lectures (`.mp3`, `.wav`) as well as **lecture videos (`.mp4`, `.webm`, `.mov`, `.mkv`)** or **YouTube video URLs**. Extracts and transcribes spoken dialogue into chronological segments, tracks exact start/end timestamps, streams audio/video natively, and allows students to search audio by keyword and click to jump the player straight to that moment.
-* **100% Free Tech Stack:**
-  * **faster-whisper**: High-speed, local CTranslate2 Whisper implementation running on CPU with zero transcription costs.
-  * **PyAV / FFmpeg**: Direct native audio decoding and waveform parsing from both audio and video containers (550+ codecs supported).
-  * **yt-dlp**: Seamless extraction and downloading of audio streams from YouTube URLs.
-  * **Synthetic Demo Audio Generator**: 1-click in-browser test audio synthesizer for zero-setup live demonstrations.
+### 3️⃣ Lecture Sync (Multimodal Slides, Equations & Transcription)
+* **Description:** Ingests classroom recordings (`.mp3`, `.wav`), lecture videos (`.mp4`, `.mkv`), or YouTube URLs. Transcribes dialogue with faster-whisper, extracts visual slides and blackboard equations via PyAV keyframe detection, and provides click-to-seek video/audio playback.
+* **Key Innovations:**
+  * **PyAV Computer Vision Extractor:** Scales up to 50 keyframe milestones with OCR text and blackboard deduction classification.
+  * **Interactive Slide Inspector:** Click any visual milestone on the timeline to preview the slide and jump the player directly to that second.
 
-### 4️⃣ Data Storyteller (Spreadsheet & Chart Analytics)
-* **Description:** Processes lab experiment results and datasets (`.csv` or `.xlsx`). Performs automated schema inference, data cleaning (drops empty rows/columns, trims strings, strips duplicates), computes numerical statistics (mean, median, std dev, range), generates interactive charts (Scatter plots, Bar charts, Pie distribution charts), and renders automated analytical narratives.
-* **100% Free Tech Stack:**
-  * **Pandas & OpenPyXL**: High-performance local spreadsheet reading, filtering, profiling, and cleaning.
-  * **Plotly Express / Custom SVG Engine**: Interactive charts with hover tooltips and dynamic column selection.
-  * **Gemini Flash (Optional)**: Natural language data narratives synthesized from computed statistics.
+### 4️⃣ Data Storyteller (PDF Data Stories & Topic Groups)
+* **Description:** Uncovers the empirical narrative of research PDFs and lab experiment spreadsheets.
+* **Key Innovations:**
+  * **PDF Data Story Arc:** Extracts word volume, reading time, data density scores, top keywords, and a 3-phase narrative arc (Problem Foundation → Core Methodology → Experimental Synthesis).
+  * **Clean Topic Group Cards:** Clusters similar course documents into domain cards (e.g. Operating Systems, ML/AI, Databases) without confusing graph hairballs.
+  * **Lab Spreadsheet Analytics:** Automated schema cleaning, Pearson correlation matrices, and Plotly charts (Scatter, Bar, Pie).
 
-### 5️⃣ Brain Map (Knowledge Graph Visualizer)
-* **Description:** Analyzes study notes to automatically build a visual concept network graph. Extracts key entities (nodes) and linguistic relationships (verbs like *uses*, *manages*, *prevents*, *contains*), allowing students to drag nodes, zoom, inspect relationships, or open a full physics-driven PyVis graph.
-* **100% Free Tech Stack:**
-  * **NetworkX**: Mathematical directed graph generation, node centrality, and edge relationship modeling.
-  * **Pyvis**: Physics-driven dynamic network simulation rendered via interactive WebGL/HTML canvas.
-  * **Custom Draggable Canvas**: Smooth SVG coordinate system with interactive node dragging and zoom controls.
+### 5️⃣ Brain Map (3D Cosmic Knowledge Web)
+* **Description:** Visualizes the topological dependency network of academic subjects in an interactive 3D WebGL cosmic space powered by graph centrality algorithms.
 
 ---
 
@@ -140,6 +134,8 @@ npm run lint
 | **Smart Search** | `GET` | `/api/search/documents` | List indexed academic documents |
 | **Smart Search** | `POST` | `/api/search/upload` | Upload PDF/TXT, chunk text, and index in ChromaDB |
 | **Smart Search** | `GET` | `/api/search/search` | Query semantic vector database with page citations |
+| **Smart Search** | `GET` | `/api/search/documents/{id}/pages` | Retrieve full page text for synchronized reader & excerpt highlighting |
+| **Quiz Master** | `POST/GET` | `/api/quiz/campaign` | Generate progressive Fog of War lecture/document story campaign |
 | **Quiz Master** | `POST` | `/api/quiz/generate` | Generate validated MCQs, True/False, or Flashcards |
 | **Lecture Sync** | `GET` | `/api/lecture/list` | List uploaded audio/video lectures and durations |
 | **Lecture Sync** | `POST` | `/api/lecture/upload` | Upload MP3/WAV/MP4/WebM lecture file |
@@ -147,9 +143,12 @@ npm run lint
 | **Lecture Sync** | `POST` | `/api/lecture/transcribe` | Transcribe media into timestamped segments |
 | **Lecture Sync** | `POST` | `/api/lecture/search` | Search transcript text by keyword |
 | **Lecture Sync** | `GET` | `/api/lecture/{id}/audio`| Stream lecture audio file natively |
+| **Lecture Sync** | `GET` | `/api/lecture/{id}/visuals`| Retrieve PyAV extracted slide milestones & OCR text |
 | **Data Storyteller**| `GET` | `/api/data/list` | List uploaded spreadsheets |
 | **Data Storyteller**| `POST` | `/api/data/upload` | Upload CSV/XLSX dataset |
 | **Data Storyteller**| `POST` | `/api/data/analyze` | Auto-clean data, calculate metrics & charts |
+| **Data Storyteller**| `POST` | `/api/data/analyze-document` | Generate 3-phase empirical PDF data story narrative |
+| **Data Storyteller**| `GET` | `/api/data/document-clusters` | Group similar documents into clean topic domain cards |
 | **Brain Map** | `POST` | `/api/brainmap/generate` | Build concept graph with NetworkX |
 | **Brain Map** | `GET` | `/api/brainmap/{id}/pyvis`| Render standalone physics simulation graph |
 

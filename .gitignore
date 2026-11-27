@@ -27,3 +27,4 @@ dist/
 # Logs & temp
 *.log
 uploads/
+chroma_db/

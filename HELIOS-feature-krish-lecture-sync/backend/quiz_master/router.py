@@ -680,3 +680,15 @@ def get_quiz_campaign(payload: CampaignRequest):
         return _build_lecture_campaign(payload.source_id, payload.difficulty, payload.stage_count)
     return _build_document_campaign(payload.source_id, payload.difficulty, payload.stage_count)
 
+
+@router.get("/campaign", response_model=CampaignResponse)
+def get_quiz_campaign_get(
+    source_type: Literal["lecture", "document"] = "lecture",
+    source_id: int = 1,
+    difficulty: Literal["easy", "medium", "hard"] = "medium",
+    stage_count: Optional[int] = None,
+):
+    if source_type == "lecture":
+        return _build_lecture_campaign(source_id, difficulty, stage_count)
+    return _build_document_campaign(source_id, difficulty, stage_count)
+
