@@ -78,7 +78,7 @@ flowchart TD
 HELIOS is built on a 5-pillar modular architecture. In accordance with the academic group collaboration model, each module maintains an independent feature branch merged into `main`.
 
 ### 3.1 Module 1: Smart Search (`feature/krishi-smart-search`)
-* **Lead Ownership:** Krishi
+* **Project Lead:** Krishi
 * **Capability:** Hybrid Neural Semantic Search & Retrieval-Augmented Academic QA.
 * **Algorithmic Engine:**
   - **Dense Retrieval:** Cosine similarity via ChromaDB vector embeddings.
@@ -96,7 +96,7 @@ HELIOS is built on a 5-pillar modular architecture. In accordance with the acade
   - Exam Campaign Engine: Timed revision sessions, instant grading, and mastery progress tracking.
 
 ### 3.3 Module 3: Lecture Sync (`feature/krish-lecture-sync`)
-* **Lead Ownership:** Krish
+* **Module Ownership:** Krish
 * **Capability:** Multi-Modal Audio/Video Ingestion, Keyframe Extraction, and Real-Time Transcript Alignment.
 * **Algorithmic Engine:**
   - **Verbatim Subtitle Parsing:** Native `.srt` parser supporting millisecond-precise timestamps.
@@ -276,7 +276,7 @@ HELIOS enforces a collaborative multi-branch structure that maps directly to ind
 | :--- | :--- | :--- | :--- |
 | `main` | Production Integration | Shared Core Architecture | `origin`, `upstream` |
 | `feature/krish-lecture-sync` | Krish | Lecture Sync & Media Codec | `origin`, `upstream` |
-| `feature/krishi-smart-search` | Krishi | Smart Search & Hybrid RRF | `origin`, `upstream` |
+| `feature/krishi-smart-search` | Krishi (Project Lead) | Smart Search & Hybrid RRF | `origin`, `upstream` |
 | `feature/vinit-Quiz-master` | Vinit | Quiz Master & Active Recall | `origin`, `upstream` |
 | `feature/nidhi-data-storyteller` | Nidhi | Data Storyteller & EDA | `origin`, `upstream` |
 | `feature/vipsa-brain-map` | Vipsa | Brain Map & 3D Knowledge Graph| `origin`, `upstream` |
