@@ -87,6 +87,20 @@ export default function LectureSync({ backendOnline, onActivity }) {
   const videoRef = useRef(null)
   const activeTranscriptRef = useRef(null)
   const activeVisualRef = useRef(null)
+  const transcriptContainerRef = useRef(null)
+  const visualsContainerRef = useRef(null)
+  const lastScrolledSegmentRef = useRef(null)
+  const lastScrolledVisualRef = useRef(null)
+  const userInteractingRef = useRef(false)
+  const userScrollTimeoutRef = useRef(null)
+
+  const handleUserScroll = () => {
+    userInteractingRef.current = true
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current)
+    userScrollTimeoutRef.current = setTimeout(() => {
+      userInteractingRef.current = false
+    }, 2500)
+  }
 
   useEffect(() => {
     let active = true
@@ -165,12 +179,46 @@ export default function LectureSync({ backendOnline, onActivity }) {
     }
   }, [selectedId, visuals.length])
 
-  // Playback Auto-Sync: Gently scroll active slide & transcript segment into view
+  // Playback Auto-Sync: Gently scroll active slide & transcript segment ONLY within their containers
+  // and ONLY when the active item actually changes and is outside visible view!
   useEffect(() => {
-    if (!autoSync || !isPlaying) return
-    activeTranscriptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    activeVisualRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [currentTime, autoSync, isPlaying])
+    if (!autoSync || !isPlaying || userInteractingRef.current) return
+
+    // 1. Check active transcript segment
+    const curSeg = selectedLecture?.segments?.find(
+      (s) => currentTime >= s.start_time && currentTime < s.end_time
+    )
+    if (curSeg && curSeg.start_time !== lastScrolledSegmentRef.current) {
+      lastScrolledSegmentRef.current = curSeg.start_time
+      const container = transcriptContainerRef.current
+      const el = activeTranscriptRef.current
+      if (container && el) {
+        const cRect = container.getBoundingClientRect()
+        const elRect = el.getBoundingClientRect()
+        // Only scroll if element is outside the visible container bounds
+        if (elRect.top < cRect.top || elRect.bottom > cRect.bottom) {
+          const scrollOffset = el.offsetTop - container.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2)
+          container.scrollTo({ top: Math.max(0, scrollOffset), behavior: 'smooth' })
+        }
+      }
+    }
+
+    // 2. Check active visual keyframe
+    const curVis = visuals.find((v) => Math.abs(currentTime - v.timestamp) < 6.0)
+    if (curVis && curVis.id !== lastScrolledVisualRef.current) {
+      lastScrolledVisualRef.current = curVis.id
+      const vContainer = visualsContainerRef.current
+      const vEl = activeVisualRef.current
+      if (vContainer && vEl) {
+        const cRect = vContainer.getBoundingClientRect()
+        const elRect = vEl.getBoundingClientRect()
+        if (elRect.top < cRect.top || elRect.bottom > cRect.bottom) {
+          const scrollOffset = vEl.offsetTop - vContainer.offsetTop - (vContainer.clientHeight / 2) + (vEl.clientHeight / 2)
+          vContainer.scrollTo({ top: Math.max(0, scrollOffset), behavior: 'smooth' })
+        }
+      }
+    }
+  }, [currentTime, autoSync, isPlaying, selectedLecture?.segments, visuals])
 
   // Expand visible segment window if playback approaches the end of rendered range
   useEffect(() => {
@@ -1183,7 +1231,7 @@ export default function LectureSync({ backendOnline, onActivity }) {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex flex-col gap-3.5 max-h-[720px] overflow-y-auto pr-1">
+                          <div ref={visualsContainerRef} onWheel={handleUserScroll} onScroll={handleUserScroll} className="flex flex-col gap-3.5 max-h-[720px] overflow-y-auto pr-1">
                             {filteredVisuals.map((v) => {
                               const badge = getVisualBadge(v.visual_type)
                               const isNearCurrent = Math.abs(currentTime - v.timestamp) < 6.0
@@ -1335,7 +1383,7 @@ export default function LectureSync({ backendOnline, onActivity }) {
                             No transcript segments matched &ldquo;{query}&rdquo;.
                           </div>
                         ) : (
-                          <div className="flex flex-col gap-2.5 max-h-[720px] overflow-y-auto pr-1">
+                          <div ref={transcriptContainerRef} onWheel={handleUserScroll} onScroll={handleUserScroll} className="flex flex-col gap-2.5 max-h-[720px] overflow-y-auto pr-1">
                             {displayedSegments.slice(0, visibleLimit).map((seg, idx) => {
                               const isCurrent = currentTime >= seg.start_time && currentTime < seg.end_time
                               return (
@@ -1595,7 +1643,7 @@ export default function LectureSync({ backendOnline, onActivity }) {
                           No transcript segments matched &ldquo;{query}&rdquo;.
                         </div>
                       ) : (
-                        <div className="flex flex-col gap-2.5">
+                        <div ref={transcriptContainerRef} onWheel={handleUserScroll} onScroll={handleUserScroll} className="flex flex-col gap-2.5 max-h-[720px] overflow-y-auto pr-1">
                           {displayedSegments.slice(0, visibleLimit).map((seg, idx) => {
                             const isCurrent = currentTime >= seg.start_time && currentTime < seg.end_time
                             return (
