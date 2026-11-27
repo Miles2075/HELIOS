@@ -189,12 +189,15 @@ erDiagram
 
 All backend services are served under the `/api` prefix on `http://127.0.0.1:8000`:
 
-### 5.1 System & Documents
+### 5.1 System & Documents (Smart Search & QA)
 * `GET /health`: System heartbeat and loaded module diagnostics.
 * `GET /api/search/documents`: Returns list of all ingested documents.
+* `GET /api/search/documents/{id}/pages`: Returns all extracted pages for the document.
 * `POST /api/search/upload`: Multipart upload for academic PDFs (`heat12.pdf`).
 * `GET /api/search/search?query={q}&strategy=hybrid_rrf`: Executes hybrid search query.
 * `POST /api/search/ask`: Submits query for contextualized RAG synthesis with page citations.
+* `POST /api/qa/ask`: Smart Search single-document question answering with verbatim excerpts and page citations.
+* `POST /api/qa/search-all`: Cross-document semantic search returning citations with document IDs, pages, and verbatim highlights.
 
 ### 5.2 Lectures & Media
 * `GET /api/lecture/list`: Returns all uploaded audio and video lectures.
