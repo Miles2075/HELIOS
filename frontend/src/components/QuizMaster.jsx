@@ -77,7 +77,7 @@ export default function QuizMaster({
   const [campaignComplete, setCampaignComplete] = useState(false)
 
   // Classic Quiz Mode State
-  const [selectedDocId, setSelectedDocId] = useState(activeDocId || documents[0]?.document_id || 1)
+  const [selectedDocId, setSelectedDocId] = useState(activeDocId || documents[0]?.document_id || null)
   const [quizType, setQuizType] = useState('mcq')
   const [difficulty, setDifficulty] = useState('medium')
   const [count, setCount] = useState(5)
@@ -94,19 +94,32 @@ export default function QuizMaster({
     let active = true
     listLectures()
       .then((rows) => {
-        if (!active || !rows.length) return
-        setLectures(rows)
-        // Default to first lecture or CS50 (id: 7) if present
-        const defaultLec = rows.find((r) => r.lecture_id === 7) || rows[0]
-        if (defaultLec) {
-          setSelectedSourceId(defaultLec.lecture_id)
-        }
+        if (!active) return
+        setLectures(rows || [])
       })
       .catch(() => {})
     return () => {
       active = false
     }
   }, [])
+
+  // Auto-select valid source when lectures or documents update
+  useEffect(() => {
+    if (lectures.length > 0) {
+      if (selectedSourceType === 'lecture' && !lectures.some((l) => l.lecture_id === selectedSourceId)) {
+        setSelectedSourceId(lectures[0].lecture_id)
+      }
+    } else if (documents.length > 0) {
+      if (selectedSourceType === 'lecture' || !documents.some((d) => d.document_id === selectedSourceId)) {
+        setSelectedSourceType('document')
+        setSelectedSourceId(documents[0].document_id)
+      }
+    } else {
+      setSelectedSourceId(null)
+      setCampaign(null)
+      setCampaignError('')
+    }
+  }, [lectures, documents, selectedSourceType, selectedSourceId])
 
   // Auto-load campaign on lecture selection, source change or stageCount change
   useEffect(() => {
@@ -323,35 +336,52 @@ export default function QuizMaster({
                 </span>
               </div>
 
-              <select
-                value={`${selectedSourceType}-${selectedSourceId}`}
-                onChange={(e) => {
-                  const [st, id] = e.target.value.split('-')
-                  setSelectedSourceType(st)
-                  setSelectedSourceId(Number(id))
-                }}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border outline-none max-w-lg cursor-pointer"
-                style={{
-                  background: 'var(--bg-input)',
-                  borderColor: 'var(--border-strong)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <optgroup label="🎥 Lecture Videos & Audio Logs">
-                  {lectures.map((l) => (
-                    <option key={`lecture-${l.lecture_id}`} value={`lecture-${l.lecture_id}`}>
-                      {l.filename} ({Math.round((l.duration || 0) / 60)} mins)
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="📄 Course Documents & Syllabi">
-                  {documents.map((d) => (
-                    <option key={`document-${d.document_id}`} value={`document-${d.document_id}`}>
-                      {d.filename} ({d.pages} pages)
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              {lectures.length === 0 && documents.length === 0 ? (
+                <div
+                  className="px-3.5 py-2 rounded-xl text-xs font-medium border"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  No materials uploaded yet (Upload in Smart Search or Lecture Sync)
+                </div>
+              ) : (
+                <select
+                  value={`${selectedSourceType}-${selectedSourceId}`}
+                  onChange={(e) => {
+                    const [st, id] = e.target.value.split('-')
+                    setSelectedSourceType(st)
+                    setSelectedSourceId(Number(id))
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border outline-none max-w-lg cursor-pointer"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {lectures.length > 0 && (
+                    <optgroup label="🎥 Lecture Videos & Audio Logs">
+                      {lectures.map((l) => (
+                        <option key={`lecture-${l.lecture_id}`} value={`lecture-${l.lecture_id}`}>
+                          {l.filename} ({Math.round((l.duration || 0) / 60)} mins)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {documents.length > 0 && (
+                    <optgroup label="📄 Course Documents & Syllabi">
+                      {documents.map((d) => (
+                        <option key={`document-${d.document_id}`} value={`document-${d.document_id}`}>
+                          {d.filename} ({d.pages || d.page_count || 1} pages)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              )}
 
               {/* Chapter Depth Selector */}
               <div className="flex items-center gap-2">
@@ -381,7 +411,7 @@ export default function QuizMaster({
               <button
                 type="button"
                 onClick={() => handleLoadCampaign(selectedSourceType, selectedSourceId)}
-                disabled={loadingCampaign}
+                disabled={loadingCampaign || !selectedSourceId}
                 className="helios-btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {loadingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -418,9 +448,13 @@ export default function QuizMaster({
           ) : !campaign ? (
             <div className="helios-card p-10 text-center flex flex-col items-center justify-center min-h-[300px]">
               <Compass className="w-10 h-10 mb-3 opacity-40" style={{ color: 'var(--accent)' }} />
-              <h3 className="text-base font-bold m-0">No Campaign Initialized</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Select a lecture above and click Initialize Campaign.
+              <h3 className="text-base font-bold m-0" style={{ color: 'var(--text-primary)' }}>
+                {lectures.length === 0 && documents.length === 0 ? 'No Study Materials Ingested Yet' : 'No Campaign Initialized'}
+              </h3>
+              <p className="text-xs mt-1 max-w-md" style={{ color: 'var(--text-secondary)' }}>
+                {lectures.length === 0 && documents.length === 0
+                  ? 'Upload lecture videos or audio in Lecture Sync, or PDF textbooks in Smart Search to generate your interactive "Fog of War" Mindmap campaign.'
+                  : 'Select an uploaded lecture or document above and click Restart Campaign.'}
               </p>
             </div>
           ) : (

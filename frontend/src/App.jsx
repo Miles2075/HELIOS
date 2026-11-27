@@ -20,7 +20,7 @@ import DataStoryteller from './components/DataStoryteller'
 import LectureSync from './components/LectureSync'
 import QuizMaster from './components/QuizMaster'
 import SmartSearch from './components/SmartSearch'
-import { INITIAL_DOCUMENTS, THEMES } from './data/mockCorpus'
+import { THEMES } from './data/mockCorpus'
 
 function getGreeting() {
   const hr = new Date().getHours()
@@ -75,21 +75,22 @@ export default function App() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [backendOnline, setBackendOnline] = useState(false)
 
-  const [documents, setDocuments] = useState(INITIAL_DOCUMENTS)
-  const [activeDocId, setActiveDocId] = useState(INITIAL_DOCUMENTS[0].document_id)
+  const [documents, setDocuments] = useState([])
+  const [activeDocId, setActiveDocId] = useState(null)
 
-  const [recentActivity, setRecentActivity] = useState([
-    { id: 1, title: 'Generated Quiz for CS-301', time: '2h ago', type: 'quiz', target: 'quiz-master' },
-    { id: 2, title: "Searched 'Virtual Memory'", time: '3h ago', type: 'search', target: 'smart-search' },
-    { id: 3, title: 'Transcribed Lecture 4', time: 'Yesterday', type: 'lecture', target: 'lecture-sync' },
-  ])
+  const [recentActivity, setRecentActivity] = useState([])
 
   const [stats, setStats] = useState({
-    minsStudied: 42,
-    flashcardsReviewed: 14,
-    notes: 247,
-    quizzes: 38,
-    hours: 124,
+    minsStudied: 0,
+    flashcardsReviewed: 0,
+    notes: 0,
+    quizzes: 0,
+    hours: 0,
+    documentsCount: 0,
+    pagesCount: 0,
+    lecturesCount: 0,
+    lectureHours: 0,
+    datasetsCount: 0,
   })
 
   const themeMenuRef = useRef(null)
@@ -113,30 +114,32 @@ export default function App() {
           Promise.allSettled([listDocuments(), listLectures(), listDatasets()])
             .then(([docsRes, lecsRes, datasetsRes]) => {
               if (!mounted) return
-              const docs = docsRes.status === 'fulfilled' ? docsRes.value : []
-              const lecs = lecsRes.status === 'fulfilled' ? lecsRes.value : []
-              const datasets = datasetsRes.status === 'fulfilled' ? datasetsRes.value : []
+              const docs = docsRes.status === 'fulfilled' && Array.isArray(docsRes.value) ? docsRes.value : []
+              const lecs = lecsRes.status === 'fulfilled' && Array.isArray(lecsRes.value) ? lecsRes.value : []
+              const datasets = datasetsRes.status === 'fulfilled' && Array.isArray(datasetsRes.value) ? datasetsRes.value : []
 
-              if (docs && docs.length > 0) {
-                setDocuments(docs)
+              setDocuments(docs)
+              if (docs.length > 0) {
                 setActiveDocId((prev) =>
                   docs.some((d) => d.document_id === prev) ? prev : docs[0].document_id
                 )
+              } else {
+                setActiveDocId(null)
               }
 
               const totalDurationSecs = lecs.reduce((acc, l) => acc + (parseFloat(l.duration) || 0), 0)
-              const totalPages = (docs.length > 0 ? docs : INITIAL_DOCUMENTS).reduce(
-                (acc, d) => acc + (d.pages || 1),
+              const totalPages = docs.reduce(
+                (acc, d) => acc + (d.pages || d.page_count || 1),
                 0
               )
 
               setStats((prev) => ({
                 ...prev,
-                documentsCount: docs.length || INITIAL_DOCUMENTS.length,
+                documentsCount: docs.length,
                 pagesCount: totalPages,
-                lecturesCount: lecs.length || 7,
-                lectureHours: Math.round((totalDurationSecs / 3600) * 10) / 10 || 18.2,
-                datasetsCount: datasets.length || 3,
+                lecturesCount: lecs.length,
+                lectureHours: Math.round((totalDurationSecs / 3600) * 10) / 10,
+                datasetsCount: datasets.length,
               }))
             })
             .catch(() => {})
@@ -177,7 +180,7 @@ export default function App() {
   }
 
   const activeDocument =
-    documents.find((d) => d.document_id === activeDocId) || documents[0]
+    documents.find((d) => d.document_id === activeDocId) || documents[0] || null
   const currentThemeObj = THEMES.find((t) => t.id === theme) || THEMES[0]
 
   return (
