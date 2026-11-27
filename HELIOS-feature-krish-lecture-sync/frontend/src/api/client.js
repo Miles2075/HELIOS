@@ -174,6 +174,12 @@ export async function getDocumentPages(documentId) {
   return []
 }
 
+export async function runRetrievalBenchmark() {
+  const res = await fetch('/api/search/benchmark')
+  if (!res.ok) throw new Error('Benchmark failed to execute')
+  return await res.json()
+}
+
 export async function uploadSearchDocument(file, nextId) {
   const ext = file.name.split('.').pop()?.toLowerCase()
   if (!['pdf', 'txt'].includes(ext)) {
