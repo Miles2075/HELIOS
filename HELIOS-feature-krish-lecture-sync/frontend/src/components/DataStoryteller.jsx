@@ -1,15 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
+  ArrowRight,
   BarChart3,
+  BookOpen,
   CheckCircle2,
   FileSpreadsheet,
+  FileText,
+  FolderKanban,
+  Hash,
+  Layers,
   Loader2,
+  Network,
+  RotateCcw,
   Sparkles,
   Table2,
+  TrendingUp,
   Upload,
 } from 'lucide-react'
-import { analyzeDataset, listDatasets, parseCsvText, uploadDataset } from '../api/client'
+import {
+  analyzeDataset,
+  analyzeDocumentStory,
+  getDocumentClusters,
+  listDatasets,
+  listDocuments,
+  parseCsvText,
+  uploadDataset,
+} from '../api/client'
 import { SAMPLE_DATASET_CSV } from '../data/mockCorpus'
 
 const PIE_COLORS = [
@@ -298,7 +315,23 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
   )
 }
 
-export default function DataStoryteller({ backendOnline, onActivity }) {
+export default function DataStoryteller({ documents = [], activeDocId, backendOnline, onActivity }) {
+  // Navigation: 'doc_story' (PDF Data Story) | 'clusters' (Topic Groups) | 'dataset' (Spreadsheet Analytics)
+  const [storyMode, setStoryMode] = useState('doc_story')
+
+  // Document Data Story State
+  const [docList, setDocList] = useState(documents)
+  const [selectedDocId, setSelectedDocId] = useState(activeDocId || documents[0]?.document_id || 1)
+  const [docStory, setDocStory] = useState(null)
+  const [loadingDocStory, setLoadingDocStory] = useState(false)
+  const [docStoryError, setDocStoryError] = useState('')
+
+  // Topic Clusters State
+  const [clustersData, setClustersData] = useState(null)
+  const [loadingClusters, setLoadingClusters] = useState(false)
+  const [clustersError, setClustersError] = useState('')
+
+  // Tabular Dataset State
   const [datasets, setDatasets] = useState([])
   const [dataset, setDataset] = useState({
     dataset_id: 1,
@@ -315,6 +348,67 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
   const [pageSize, setPageSize] = useState(15)
 
   const fileInputRef = useRef(null)
+
+  // Keep docList in sync with documents prop
+  useEffect(() => {
+    let active = true
+    if (!documents || documents.length === 0) {
+      listDocuments()
+        .then((res) => {
+          if (!active) return
+          if (res?.documents?.length) {
+            setDocList(res.documents)
+            if (!selectedDocId) setSelectedDocId(res.documents[0].document_id)
+          }
+        })
+        .catch(() => {})
+    } else {
+      setDocList(documents)
+      if (!selectedDocId && documents[0]) setSelectedDocId(documents[0].document_id)
+    }
+    return () => {
+      active = false
+    }
+  }, [documents])
+
+  // Load document data story
+  const loadDocStory = async (docId) => {
+    if (!docId) return
+    setLoadingDocStory(true)
+    setDocStoryError('')
+    try {
+      const data = await analyzeDocumentStory(docId)
+      setDocStory(data)
+      onActivity?.(`Extracted Data Story for '${data.filename}' (${data.total_pages} pages, ${data.total_data_points} data markers)`, 'data', 'data-storyteller')
+    } catch (err) {
+      setDocStoryError(err.message || 'Failed to generate document data story')
+    } finally {
+      setLoadingDocStory(false)
+    }
+  }
+
+  // Load topic clusters
+  const loadClusters = async () => {
+    setLoadingClusters(true)
+    setClustersError('')
+    try {
+      const data = await getDocumentClusters()
+      setClustersData(data)
+      onActivity?.(`Grouped ${data.total_documents} documents across ${data.total_clusters} topic domains`, 'data', 'data-storyteller')
+    } catch (err) {
+      setClustersError(err.message || 'Failed to fetch topic clusters')
+    } finally {
+      setLoadingClusters(false)
+    }
+  }
+
+  useEffect(() => {
+    if (storyMode === 'doc_story' && selectedDocId) {
+      loadDocStory(selectedDocId)
+    } else if (storyMode === 'clusters' && !clustersData) {
+      loadClusters()
+    }
+  }, [storyMode, selectedDocId])
 
   const applyChartCols = (res) => {
     const hdrs = res.parsed?.headers || []
@@ -412,11 +506,11 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
 
   return (
     <div className="flex flex-col gap-5 pb-6">
-      {/* Header */}
+      {/* Header & Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span
-            className="w-9 h-9 rounded-xl flex items-center justify-center border"
+            className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm"
             style={{
               background: 'var(--gold-soft)',
               borderColor: 'rgba(245, 158, 11, 0.4)',
@@ -426,87 +520,627 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
             <BarChart3 className="w-5 h-5" />
           </span>
           <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold m-0">Data Storyteller</h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold m-0 flex items-center gap-2">
+              <span>Data Storyteller</span>
+              <span
+                className="text-[11px] font-mono-code font-bold px-2 py-0.5 rounded-full border uppercase"
+                style={{
+                  background: 'var(--accent-soft)',
+                  borderColor: 'var(--accent-border)',
+                  color: 'var(--accent-bright)',
+                }}
+              >
+                {storyMode === 'doc_story' ? 'PDF Story' : storyMode === 'clusters' ? 'Topic Clusters' : 'Spreadsheet'}
+              </span>
+            </h1>
             <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--text-secondary)' }}>
-              Upload CSV or XLSX spreadsheets for automated statistics, interactive charts, and AI summaries.
+              {storyMode === 'doc_story'
+                ? 'Visualize the empirical data story, statistical density curve, and concept progression of any course PDF.'
+                : storyMode === 'clusters'
+                ? 'Structured, non-confusing domain groupings of related course documents based on semantic similarity.'
+                : 'Upload CSV or XLSX spreadsheets for automated statistics, interactive charts, and AI summaries.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {datasets.length > 0 && (
-            <select
-              value={dataset.dataset_id}
-              onChange={(e) => {
-                const found = datasets.find((d) => d.dataset_id === Number(e.target.value))
-                if (found) {
-                  setDataset(found)
-                  runAnalysis(found)
-                }
-              }}
-              className="px-3 py-2 rounded-xl text-xs border outline-none"
-              style={{
-                background: 'var(--bg-card)',
-                borderColor: 'var(--border-strong)',
-                color: 'var(--text-primary)',
-              }}
-            >
-              {datasets.map((d) => (
-                <option key={d.dataset_id} value={d.dataset_id}>
-                  {d.filename} (#{d.dataset_id})
-                </option>
-              ))}
-            </select>
-          )}
-          <span
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border"
-            style={{
-              background: isLive ? 'var(--emerald-soft)' : 'var(--gold-soft)',
-              borderColor: isLive ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)',
-              color: isLive ? 'var(--emerald)' : 'var(--gold)',
-            }}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {isLive ? 'Live Pandas & Plotly' : 'Preview Mode'}
-          </span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx"
-            className="hidden"
-            onChange={(e) => {
-              handleUpload(e.target.files?.[0])
-              e.target.value = ''
-            }}
-          />
+        {/* 3-Way Mode Pill Switcher */}
+        <div
+          className="p-1 rounded-xl border flex items-center gap-1 w-fit flex-wrap"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
           <button
             type="button"
-            disabled={loading}
-            onClick={() => fileInputRef.current?.click()}
-            className="helios-btn-primary px-4 py-2.5 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer"
+            onClick={() => setStoryMode('doc_story')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              storyMode === 'doc_story' ? 'shadow-sm' : 'opacity-70 hover:opacity-100'
+            }`}
+            style={{
+              background: storyMode === 'doc_story' ? 'var(--accent)' : 'transparent',
+              color: storyMode === 'doc_story' ? 'var(--accent-text)' : 'var(--text-secondary)',
+            }}
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            Upload CSV / XLSX
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>PDF Data Story</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStoryMode('clusters')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              storyMode === 'clusters' ? 'shadow-sm' : 'opacity-70 hover:opacity-100'
+            }`}
+            style={{
+              background: storyMode === 'clusters' ? 'var(--accent)' : 'transparent',
+              color: storyMode === 'clusters' ? 'var(--accent-text)' : 'var(--text-secondary)',
+            }}
+          >
+            <FolderKanban className="w-3.5 h-3.5" />
+            <span>Topic Clusters</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStoryMode('dataset')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              storyMode === 'dataset' ? 'shadow-sm' : 'opacity-70 hover:opacity-100'
+            }`}
+            style={{
+              background: storyMode === 'dataset' ? 'var(--accent)' : 'transparent',
+              color: storyMode === 'dataset' ? 'var(--accent-text)' : 'var(--text-secondary)',
+            }}
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            <span>Spreadsheet Analytics</span>
           </button>
         </div>
       </div>
 
-      {error && (
-        <div
-          className="p-3.5 rounded-xl border flex items-center gap-2 text-sm"
-          style={{
-            background: 'rgba(251, 113, 133, 0.12)',
-            borderColor: 'rgba(251, 113, 133, 0.4)',
-            color: 'var(--danger)',
-          }}
-        >
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
+      {/* =================================================================== */}
+      {/* MODE 1: PDF DOCUMENT DATA STORY */}
+      {/* =================================================================== */}
+      {storyMode === 'doc_story' && (
+        <div className="flex flex-col gap-5">
+          {/* Document Selector Bar */}
+          <div
+            className="helios-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
+              <span className="text-xs font-bold tracking-wider uppercase shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                Target PDF Document:
+              </span>
+
+              <select
+                value={selectedDocId}
+                onChange={(e) => {
+                  const id = Number(e.target.value)
+                  setSelectedDocId(id)
+                  loadDocStory(id)
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border outline-none max-w-lg cursor-pointer"
+                style={{
+                  background: 'var(--bg-input)',
+                  borderColor: 'var(--border-strong)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {docList.map((d) => (
+                  <option key={d.document_id || d.id} value={d.document_id || d.id}>
+                    📄 {d.filename} ({d.pages || d.page_count || 1} pages)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              disabled={loadingDocStory}
+              onClick={() => loadDocStory(selectedDocId)}
+              className="helios-btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {loadingDocStory ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              <span>Re-analyze Story</span>
+            </button>
+          </div>
+
+          {docStoryError && (
+            <div
+              className="p-3.5 rounded-xl border flex items-center gap-2 text-sm"
+              style={{
+                background: 'rgba(251, 113, 133, 0.12)',
+                borderColor: 'rgba(251, 113, 133, 0.4)',
+                color: 'var(--danger)',
+              }}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{docStoryError}</span>
+            </div>
+          )}
+
+          {loadingDocStory ? (
+            <div className="helios-card p-12 text-center flex flex-col items-center justify-center min-h-[340px] gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-base font-bold m-0" style={{ color: 'var(--text-primary)' }}>
+                Extracting Document Data Story...
+              </h3>
+              <p className="text-xs max-w-md m-0" style={{ color: 'var(--text-secondary)' }}>
+                Scanning page-by-page word volume, extracting quantitative markers, and modeling empirical density arcs.
+              </p>
+            </div>
+          ) : docStory ? (
+            <>
+              {/* Empirical Metrics Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pages Scope</span>
+                  <span className="text-lg font-black text-white">{docStory.total_pages} Pages</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">~{docStory.reading_time_mins}m reading</span>
+                </div>
+
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Word Volume</span>
+                  <span className="text-lg font-black text-amber-300">{docStory.total_words.toLocaleString()} Words</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">avg {Math.round(docStory.total_words / Math.max(1, docStory.total_pages))} / pg</span>
+                </div>
+
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data Markers</span>
+                  <span className="text-lg font-black text-cyan-400">{docStory.total_data_points} Values</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">stats, dates, %</span>
+                </div>
+
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Empirical Density</span>
+                  <span className="text-lg font-black text-emerald-400">{docStory.data_density_score}%</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">data per 100w</span>
+                </div>
+
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Vocab Richness</span>
+                  <span className="text-lg font-black text-purple-400">{Math.round(docStory.vocab_richness * 100)}%</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">unique word ratio</span>
+                </div>
+
+                <div className="helios-card p-3.5 border flex flex-col gap-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Peak Density Page</span>
+                  <span className="text-lg font-black text-rose-400">Page {docStory.peak_page}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">highest data volume</span>
+                </div>
+              </div>
+
+              {/* Grounded AI Data Story Narrative */}
+              <div
+                className="helios-card p-5 border relative overflow-hidden flex flex-col gap-3 shadow-lg"
+                style={{
+                  background: 'radial-gradient(ellipse at top left, var(--accent-soft), transparent 70%), var(--bg-card)',
+                  borderColor: 'var(--accent-border)',
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg border text-amber-300" style={{ background: 'var(--bg-app)', borderColor: 'var(--border-subtle)' }}>
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider m-0" style={{ color: 'var(--accent-bright)' }}>
+                    Empirical Data Story Narrative · {docStory.filename}
+                  </h3>
+                </div>
+
+                <p className="text-sm sm:text-base leading-relaxed font-medium m-0" style={{ color: 'var(--text-primary)' }}>
+                  {docStory.ai_story}
+                </p>
+
+                {/* Top Keywords Tags */}
+                {docStory.top_keywords?.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Key Document Anchors:</span>
+                    {docStory.top_keywords.map((k, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs font-semibold px-2.5 py-0.5 rounded-md border font-mono"
+                        style={{
+                          background: 'var(--bg-app)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--accent-bright)',
+                        }}
+                      >
+                        {k.keyword} <span className="opacity-60 text-[10px]">({k.count})</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 3-Phase Progression Arc */}
+              <div className="helios-card p-5 border flex flex-col gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                <h3 className="text-xs font-bold uppercase tracking-[0.16em] flex items-center gap-1.5 m-0" style={{ color: 'var(--accent)' }}>
+                  <TrendingUp className="w-4 h-4" /> 3-PHASE CONCEPT & EMPIRICAL PROGRESSION ARC
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-1">
+                  {docStory.story_arc?.map((arc, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl border flex flex-col justify-between gap-2.5"
+                      style={{
+                        background: 'var(--bg-card-elevated)',
+                        borderColor: idx === 1 ? 'rgba(56, 189, 248, 0.4)' : 'var(--border-subtle)',
+                      }}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between text-xs font-mono font-bold mb-1">
+                          <span style={{ color: idx === 0 ? 'var(--accent-bright)' : idx === 1 ? '#38bdf8' : 'var(--emerald)' }}>
+                            Phase {idx + 1}: {arc.phase}
+                          </span>
+                          <span className="px-2 py-0.5 rounded border text-[10px]" style={{ background: 'var(--bg-app)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                            {arc.pages}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--text-secondary)' }}>
+                          {arc.desc}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t text-[11px] font-semibold italic text-amber-200 truncate" style={{ borderColor: 'var(--border-subtle)' }}>
+                        &ldquo;{arc.highlight}&rdquo;
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Page-by-Page Interactive Story Timeline */}
+              <div className="helios-card p-5 border flex flex-col gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-[0.16em] flex items-center gap-1.5 m-0" style={{ color: 'var(--accent)' }}>
+                    <BookOpen className="w-4 h-4" /> PAGE-BY-PAGE EMPIRICAL BREAKDOWN ({docStory.page_stories.length} PAGES)
+                  </h3>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    Peak: Page {docStory.peak_page}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-1">
+                  {docStory.page_stories.map((ps) => {
+                    const isPeak = ps.page_number === docStory.peak_page
+                    return (
+                      <div
+                        key={ps.page_number}
+                        className="p-4 rounded-xl border flex flex-col justify-between gap-3 transition-all"
+                        style={{
+                          background: isPeak ? 'radial-gradient(circle at top right, rgba(244, 114, 182, 0.12), var(--bg-card-elevated))' : 'var(--bg-card-elevated)',
+                          borderColor: isPeak ? 'rgba(244, 114, 182, 0.45)' : 'var(--border-subtle)',
+                        }}
+                      >
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className="font-mono text-xs font-bold px-2 py-0.5 rounded border"
+                              style={{
+                                background: isPeak ? 'var(--accent-soft)' : 'var(--bg-app)',
+                                borderColor: isPeak ? 'var(--accent)' : 'var(--border-subtle)',
+                                color: isPeak ? 'var(--accent-bright)' : 'var(--text-primary)',
+                              }}
+                            >
+                              Page {ps.page_number} {isPeak && '★ Peak Data'}
+                            </span>
+
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+                              <span>{ps.word_count} words</span>
+                              <span>·</span>
+                              <span style={{ color: ps.data_points_count > 0 ? '#38bdf8' : 'inherit' }}>
+                                {ps.data_points_count} data values
+                              </span>
+                            </div>
+                          </div>
+
+                          <h4 className="text-xs sm:text-sm font-bold mt-1 m-0" style={{ color: 'var(--text-primary)' }}>
+                            {ps.headline}
+                          </h4>
+
+                          <p className="text-xs leading-relaxed m-0 text-muted-foreground">
+                            {ps.preview_snippet}
+                          </p>
+                        </div>
+
+                        {/* Numeric Data Markers Badge Row */}
+                        {ps.key_metrics?.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Extracted Metrics:</span>
+                            {ps.key_metrics.map((km, kIdx) => (
+                              <span
+                                key={kIdx}
+                                className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border"
+                                style={{
+                                  background: 'var(--bg-app)',
+                                  borderColor: 'rgba(56, 189, 248, 0.3)',
+                                  color: '#38bdf8',
+                                }}
+                              >
+                                {km}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 
+      {/* =================================================================== */}
+      {/* MODE 2: TOPIC CLUSTERS & RELATED DOCUMENT GROUPS */}
+      {/* =================================================================== */}
+      {storyMode === 'clusters' && (
+        <div className="flex flex-col gap-5">
+          <div
+            className="helios-card p-5 border flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <div>
+              <h2 className="text-base sm:text-lg font-bold m-0 flex items-center gap-2">
+                <span>Academic Topic Domains & Document Clusters</span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full border" style={{ background: 'var(--bg-app)', borderColor: 'var(--border-subtle)', color: 'var(--accent-bright)' }}>
+                  {clustersData?.total_clusters || 0} Domains · {clustersData?.total_documents || 0} Documents
+                </span>
+              </h2>
+              <p className="text-xs mt-1 m-0 text-muted-foreground">
+                Structured, non-confusing groupings of similar topic course documents based on semantic concept overlap.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={loadingClusters}
+              onClick={loadClusters}
+              className="helios-btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {loadingClusters ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              <span>Refresh Clusters</span>
+            </button>
+          </div>
+
+          {clustersError && (
+            <div
+              className="p-3.5 rounded-xl border flex items-center gap-2 text-sm"
+              style={{
+                background: 'rgba(251, 113, 133, 0.12)',
+                borderColor: 'rgba(251, 113, 133, 0.4)',
+                color: 'var(--danger)',
+              }}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{clustersError}</span>
+            </div>
+          )}
+
+          {loadingClusters ? (
+            <div className="helios-card p-12 text-center flex flex-col items-center justify-center min-h-[300px] gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-base font-bold m-0">Synthesizing Topic Clusters...</h3>
+              <p className="text-xs max-w-md m-0 text-muted-foreground">
+                Comparing semantic co-occurrence and mapping related textbooks into cohesive domain cards.
+              </p>
+            </div>
+          ) : clustersData?.clusters?.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {clustersData.clusters.map((cluster) => (
+                <div
+                  key={cluster.cluster_id}
+                  className="helios-card p-5 border flex flex-col justify-between gap-4 shadow-sm"
+                  style={{
+                    borderColor: 'var(--border-subtle)',
+                    borderLeft: `4px solid ${cluster.color || 'var(--accent)'}`,
+                  }}
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg border" style={{ background: 'var(--bg-app)', borderColor: 'var(--border-subtle)', color: cluster.color }}>
+                        {cluster.badge}
+                      </span>
+
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {cluster.document_count} {cluster.document_count === 1 ? 'Document' : 'Documents'} · {cluster.total_pages} Pages
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold m-0 mt-1" style={{ color: 'var(--text-primary)' }}>
+                      {cluster.name}
+                    </h3>
+
+                    <p className="text-xs leading-relaxed m-0 text-muted-foreground">
+                      {cluster.description}
+                    </p>
+
+                    {/* Shared Keywords Tags */}
+                    {cluster.keywords?.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        {cluster.keywords.map((kw, kwIdx) => (
+                          <span
+                            key={kwIdx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded border"
+                            style={{
+                              background: 'var(--bg-card-elevated)',
+                              borderColor: 'var(--border-subtle)',
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            #{kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Member Documents List */}
+                  <div className="flex flex-col gap-2 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Connected Course Documents:</span>
+                    <div className="flex flex-col gap-1.5">
+                      {cluster.documents.map((doc) => (
+                        <div
+                          key={doc.document_id}
+                          className="p-2.5 rounded-lg border flex items-center justify-between gap-2"
+                          style={{
+                            background: 'var(--bg-app)',
+                            borderColor: 'var(--border-subtle)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 shrink-0 text-amber-300" />
+                            <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                              {doc.filename}
+                            </span>
+                            <span className="text-[10px] font-mono opacity-70 shrink-0">
+                              ({doc.page_count}p)
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDocId(doc.document_id)
+                              setStoryMode('doc_story')
+                              loadDocStory(doc.document_id)
+                            }}
+                            className="text-[11px] font-bold px-2.5 py-1 rounded border inline-flex items-center gap-1 cursor-pointer hover:opacity-90 shrink-0"
+                            style={{
+                              background: 'var(--accent-soft)',
+                              borderColor: 'var(--accent)',
+                              color: 'var(--accent-bright)',
+                            }}
+                          >
+                            <span>View Story</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="helios-card p-10 text-center text-muted-foreground">
+              No documents found to cluster. Upload PDFs in Smart Search first.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODE 3: TABULAR DATASETS (CSV / XLSX SPREADSHEETS) */}
+      {/* =================================================================== */}
+      {storyMode === 'dataset' && (
+        <div className="flex flex-col gap-5">
+          {/* Dataset Control Bar */}
+          <div
+            className="helios-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <div className="flex items-center gap-3 flex-wrap flex-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Spreadsheet:</span>
+              {datasets.length > 0 && (
+                <select
+                  value={dataset.dataset_id}
+                  onChange={(e) => {
+                    const found = datasets.find((d) => d.dataset_id === Number(e.target.value))
+                    if (found) {
+                      setDataset(found)
+                      runAnalysis(found)
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs border outline-none cursor-pointer"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {datasets.map((d) => (
+                    <option key={d.dataset_id} value={d.dataset_id}>
+                      {d.filename} (#{d.dataset_id})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border"
+                style={{
+                  background: isLive ? 'var(--emerald-soft)' : 'var(--gold-soft)',
+                  borderColor: isLive ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+                  color: isLive ? 'var(--emerald)' : 'var(--gold)',
+                }}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {isLive ? 'Live Pandas & Plotly' : 'Preview Mode'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx"
+                className="hidden"
+                onChange={(e) => {
+                  handleUpload(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => fileInputRef.current?.click()}
+                className="helios-btn-primary px-4 py-2.5 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                Upload CSV / XLSX
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div
+              className="p-3.5 rounded-xl border flex items-center gap-2 text-sm"
+              style={{
+                background: 'rgba(251, 113, 133, 0.12)',
+                borderColor: 'rgba(251, 113, 133, 0.4)',
+                color: 'var(--danger)',
+              }}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
       {analysis && (
         <>
+          {/* Active Metric Focus Switcher */}
+          {numericCols.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap text-xs px-1">
+              <span className="font-semibold text-xs flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <span>Primary Metric:</span>
+              </span>
+              {numericCols.map((col) => (
+                <button
+                  key={col}
+                  type="button"
+                  onClick={() => setYCol(col)}
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs transition-all border cursor-pointer ${
+                    activeMetric === col
+                      ? 'border-[var(--accent-bright)] text-[var(--accent-bright)] bg-[var(--accent-soft)] font-bold shadow-sm'
+                      : 'border-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-muted)] bg-[var(--surface-mid)]'
+                  }`}
+                >
+                  {col}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Summary KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
             <div className="helios-card p-4">
@@ -777,6 +1411,8 @@ export default function DataStoryteller({ backendOnline, onActivity }) {
             </div>
           </div>
         </>
+      )}
+        </div>
       )}
     </div>
   )

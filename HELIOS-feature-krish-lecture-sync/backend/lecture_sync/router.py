@@ -1,6 +1,7 @@
+import asyncio
 import shutil
 from pathlib import Path
-from typing import List
+from typing import List, Tuple, Dict, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -9,6 +10,11 @@ from pydantic import BaseModel
 
 from backend.core.database import get_connection, initialize_database
 from backend.lecture_sync.transcriber import transcribe_audio_file
+from backend.lecture_sync.visual_extractor import (
+    extract_and_save_lecture_visuals,
+    get_persisted_visuals,
+    is_video_file,
+)
 
 router = APIRouter(prefix="/api/lecture", tags=["Lecture Sync"])
 
@@ -89,6 +95,25 @@ class SearchResponse(BaseModel):
     results: List[Segment]
 
 
+class VisualItem(BaseModel):
+    id: int
+    lecture_id: int
+    timestamp: float
+    visual_type: str
+    title: str
+    description: str
+    latex: str = ""
+    ocr_text: str = ""
+    image_url: str
+
+
+class VisualsResponse(BaseModel):
+    success: bool
+    lecture_id: int
+    count: int
+    visuals: List[VisualItem]
+
+
 class LectureSummary(BaseModel):
     lecture_id: int
     filename: str
@@ -96,6 +121,7 @@ class LectureSummary(BaseModel):
     duration: float
     engine: str
     size_kb: int = 0
+    is_video: bool = False
     segments: List[Segment]
 
 
@@ -145,6 +171,7 @@ async def list_lectures():
         for row in rows:
             fpath = Path(row["file_path"])
             size_kb = max(1, round(fpath.stat().st_size / 1024)) if fpath.exists() else 0
+            is_video = is_video_file(fpath) or is_video_file(Path(row["filename"]))
             lectures.append(
                 LectureSummary(
                     lecture_id=row["id"],
@@ -153,6 +180,7 @@ async def list_lectures():
                     duration=float(row["duration"]),
                     engine=row["engine"],
                     size_kb=size_kb,
+                    is_video=is_video,
                     segments=_fetch_segments(connection, row["id"]),
                 )
             )
@@ -244,6 +272,91 @@ async def upload_lecture(file: UploadFile = File(...)):
     )
 
 
+def _download_youtube_worker(url: str, output_template: str) -> Tuple[Dict[str, Any], List[Tuple[float, float, str]]]:
+    import json as json_mod
+    import urllib.request
+    import yt_dlp
+
+    # Try client configurations with android first to avoid bot detection
+    client_configs = [
+        {"player_client": ["android"]},
+        {"player_client": ["android", "web"]},
+        {"player_client": ["mweb"]},
+    ]
+
+    info = None
+    last_err = None
+    for cfg in client_configs:
+        try:
+            ydl_opts = {
+                "format": "18/best[ext=mp4]/bestaudio/best",
+                "outtmpl": output_template,
+                "noplaylist": True,
+                "quiet": True,
+                "no_warnings": True,
+                "extractor_args": {"youtube": cfg},
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if not info:
+        # Fallback to browser cookies if available
+        for browser in ["chrome", "edge"]:
+            try:
+                ydl_opts = {
+                    "format": "18/best[ext=mp4]/bestaudio/best",
+                    "outtmpl": output_template,
+                    "noplaylist": True,
+                    "quiet": True,
+                    "no_warnings": True,
+                    "cookiesfrombrowser": (browser, None, None, None),
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    if info:
+                        break
+            except Exception:
+                pass
+
+    if not info:
+        err_msg = str(last_err or "Unknown extraction failure")
+        if "bot" in err_msg.lower() or "sign in" in err_msg.lower():
+            raise ValueError(
+                "YouTube's anti-bot verification blocked direct download. "
+                "Tip: Try uploading the MP3/WAV file directly via 'Choose Audio/Video File' "
+                "or use a YouTube video that allows external streaming."
+            )
+        raise ValueError(f"YouTube video retrieval failed: {err_msg}")
+
+    # Check for pre-existing YouTube English captions/subtitles
+    sub_segments = []
+    auto_caps = info.get("automatic_captions", {}) or {}
+    official_caps = info.get("subtitles", {}) or {}
+    en_formats = official_caps.get("en") or auto_caps.get("en") or []
+    json3_url = next((f["url"] for f in en_formats if f.get("ext") == "json3"), None)
+
+    if json3_url:
+        try:
+            with urllib.request.urlopen(json3_url, timeout=10) as s_res:
+                sub_data = json_mod.loads(s_res.read().decode())
+            for ev in sub_data.get("events", []):
+                t = ev.get("tStartMs", 0) / 1000.0
+                d = ev.get("dDurationMs", 0) / 1000.0
+                segs = ev.get("segs", [])
+                txt = "".join(s.get("utf8", "") for s in segs).replace("\n", " ").strip()
+                if txt and txt not in {"[Music]", "[Applause]"}:
+                    sub_segments.append((round(t, 2), round(t + max(1.0, d), 2), txt))
+        except Exception:
+            pass
+
+    return info, sub_segments
+
+
 @router.post("/youtube", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def import_youtube_lecture(payload: YouTubeImportRequest):
     url = payload.url.strip()
@@ -253,52 +366,15 @@ async def import_youtube_lecture(payload: YouTubeImportRequest):
             detail="Please provide a valid YouTube video URL (e.g., https://www.youtube.com/watch?v=...)",
         )
 
+    video_token = uuid4().hex[:10]
+    output_template = str(UPLOAD_DIR / f"{video_token}_%(title).40s.%(ext)s")
+
     try:
-        import urllib.request
-        import json as json_mod
-        import yt_dlp
-
-        video_token = uuid4().hex[:10]
-        output_template = str(UPLOAD_DIR / f"{video_token}_%(title).40s.%(ext)s")
-        ydl_opts = {
-            "format": "18/best[ext=mp4]/bestaudio/best",
-            "outtmpl": output_template,
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios"]
-                }
-            },
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            title = info.get("title", "YouTube Lecture")
-            ext = info.get("ext", "mp4")
-            duration = float(info.get("duration") or 0.0)
-
-        # Check for pre-existing YouTube English captions/subtitles
-        sub_segments = []
-        auto_caps = info.get("automatic_captions", {}) or {}
-        official_caps = info.get("subtitles", {}) or {}
-        en_formats = official_caps.get("en") or auto_caps.get("en") or []
-        json3_url = next((f["url"] for f in en_formats if f.get("ext") == "json3"), None)
-
-        if json3_url:
-            try:
-                with urllib.request.urlopen(json3_url, timeout=10) as s_res:
-                    sub_data = json_mod.loads(s_res.read().decode())
-                for ev in sub_data.get("events", []):
-                    t = ev.get("tStartMs", 0) / 1000.0
-                    d = ev.get("dDurationMs", 0) / 1000.0
-                    segs = ev.get("segs", [])
-                    txt = "".join(s.get("utf8", "") for s in segs).replace("\n", " ").strip()
-                    if txt and txt not in {"[Music]", "[Applause]"}:
-                        sub_segments.append((round(t, 2), round(t + max(1.0, d), 2), txt))
-            except Exception:
-                pass
+        # Run yt-dlp on worker thread pool so FastAPI asyncio event loop never freezes
+        info, sub_segments = await asyncio.to_thread(_download_youtube_worker, url, output_template)
+        title = info.get("title", "YouTube Lecture")
+        ext = info.get("ext", "mp4")
+        duration = float(info.get("duration") or 0.0)
 
         # Locate downloaded file
         candidates = list(UPLOAD_DIR.glob(f"{video_token}_*"))
@@ -315,7 +391,7 @@ async def import_youtube_lecture(payload: YouTubeImportRequest):
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"YouTube video retrieval failed: {str(exc)}",
+            detail=str(exc),
         )
 
     connection = get_connection()
@@ -385,22 +461,48 @@ async def transcribe_lecture(payload: TranscribeRequest):
                 segments=existing_segments,
             )
 
-        try:
-            duration, raw_segments, engine = transcribe_audio_file(
-                Path(lecture["file_path"]),
-                lecture["filename"],
-            )
-        except (FileNotFoundError, ValueError) as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Audio processing error during transcription: {str(e)}",
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Audio processing error during transcription: {str(e)}",
-            )
+        # Mark as transcribing so concurrent requests know it is active
+        connection.execute(
+            "UPDATE lectures SET status = 'transcribing' WHERE id = ?",
+            (payload.lecture_id,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
 
+    try:
+        # Offload CPU-heavy Whisper execution to a background worker thread!
+        # This keeps the FastAPI asyncio event loop 100% responsive so /health and other requests never stall!
+        duration, raw_segments, engine = await asyncio.to_thread(
+            transcribe_audio_file,
+            Path(lecture["file_path"]),
+            lecture["filename"],
+        )
+    except (FileNotFoundError, ValueError) as e:
+        conn = get_connection()
+        try:
+            conn.execute("UPDATE lectures SET status = 'failed' WHERE id = ?", (payload.lecture_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Audio processing error during transcription: {str(e)}",
+        )
+    except Exception as e:
+        conn = get_connection()
+        try:
+            conn.execute("UPDATE lectures SET status = 'failed' WHERE id = ?", (payload.lecture_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio processing error during transcription: {str(e)}",
+        )
+
+    connection = get_connection()
+    try:
         connection.execute(
             "DELETE FROM lecture_segments WHERE lecture_id = ?",
             (payload.lecture_id,),
@@ -469,3 +571,57 @@ async def search_transcript(payload: SearchRequest):
         )
     finally:
         connection.close()
+
+
+@router.get("/visuals/{visual_id}/image")
+async def get_visual_image(visual_id: int):
+    connection = get_connection()
+    try:
+        row = connection.execute(
+            "SELECT image_path FROM lecture_visuals WHERE id = ?",
+            (visual_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Visual item not found in database.",
+        )
+
+    path = Path(row["image_path"])
+    if not path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Visual frame image file does not exist on disk.",
+        )
+
+    return FileResponse(path=str(path), media_type="image/jpeg")
+
+
+@router.get("/{lecture_id}/visuals", response_model=VisualsResponse)
+async def get_lecture_visuals(lecture_id: int):
+    # Check if visuals exist in database
+    visuals = get_persisted_visuals(lecture_id)
+    if not visuals:
+        # Auto-extract on first request so user sees them right away
+        visuals = await asyncio.to_thread(extract_and_save_lecture_visuals, lecture_id)
+
+    return VisualsResponse(
+        success=True,
+        lecture_id=lecture_id,
+        count=len(visuals),
+        visuals=[VisualItem(**v) for v in visuals],
+    )
+
+
+@router.post("/{lecture_id}/extract-visuals", response_model=VisualsResponse)
+async def extract_lecture_visuals(lecture_id: int):
+    visuals = await asyncio.to_thread(extract_and_save_lecture_visuals, lecture_id)
+    return VisualsResponse(
+        success=True,
+        lecture_id=lecture_id,
+        count=len(visuals),
+        visuals=[VisualItem(**v) for v in visuals],
+    )

@@ -85,9 +85,14 @@ def _try_whisper_transcribe(file_path: Path) -> Optional[List[Dict]]:
     if model is None:
         return None
 
-    # Pass 1: standard speech with VAD filtering
+    # Pass 1: standard speech with fast greedy decoding and VAD filtering
     try:
-        segments_iter, _ = model.transcribe(str(file_path), vad_filter=True)
+        segments_iter, _ = model.transcribe(
+            str(file_path),
+            vad_filter=True,
+            beam_size=1,
+            temperature=0.0,
+        )
         results = []
         for seg in segments_iter:
             text = (seg.text or "").strip()
@@ -106,29 +111,32 @@ def _try_whisper_transcribe(file_path: Path) -> Optional[List[Dict]]:
     except Exception:
         pass
 
-    # Pass 2: music / low-SNR audio (beam_size=5, condition_on_previous_text=False, vad_filter=False)
+    # Pass 2: music / low-SNR audio - ONLY run for short audio (<= 90 seconds) to avoid freezing on long recordings
     try:
-        segments_iter, _ = model.transcribe(
-            str(file_path),
-            beam_size=5,
-            condition_on_previous_text=False,
-            no_speech_threshold=0.3,
-            vad_filter=False,
-        )
-        results = []
-        for seg in segments_iter:
-            text = (seg.text or "").strip()
-            if text:
-                results.append(
-                    {
-                        "start_time": round(float(seg.start), 2),
-                        "end_time": round(float(seg.end), 2),
-                        "text": text,
-                    }
-                )
-        return results if results else None
+        duration = get_audio_duration(file_path)
+        if duration <= 90.0:
+            segments_iter, _ = model.transcribe(
+                str(file_path),
+                beam_size=1,
+                condition_on_previous_text=False,
+                no_speech_threshold=0.3,
+                vad_filter=False,
+            )
+            results = []
+            for seg in segments_iter:
+                text = (seg.text or "").strip()
+                if text:
+                    results.append(
+                        {
+                            "start_time": round(float(seg.start), 2),
+                            "end_time": round(float(seg.end), 2),
+                            "text": text,
+                        }
+                    )
+            return results if results else None
     except Exception:
-        return None
+        pass
+    return None
 
 
 def _try_gemini_transcribe(file_path: Path) -> Optional[List[Dict]]:

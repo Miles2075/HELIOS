@@ -68,6 +68,25 @@ def initialize_database() -> None:
         """
     )
 
+    # Lecture Sync extracted visual frames (diagrams, equations, graphs, slides, whiteboard)
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lecture_visuals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lecture_id INTEGER NOT NULL,
+            timestamp REAL NOT NULL,
+            visual_type TEXT NOT NULL DEFAULT 'slide',
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            ocr_text TEXT DEFAULT '',
+            latex TEXT DEFAULT '',
+            image_path TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (lecture_id) REFERENCES lectures(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Data Storyteller persistent table
     connection.execute(
         """

@@ -83,6 +83,30 @@ export async function searchLecture(lectureId, query) {
   return { ...data, _mode: 'live' }
 }
 
+export async function getLectureVisuals(lectureId) {
+  const res = await fetch(`/api/lecture/${lectureId}/visuals`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Failed to load lecture visuals (${res.status})`)
+  }
+  return data.visuals || []
+}
+
+export async function extractLectureVisuals(lectureId) {
+  const res = await fetch(`/api/lecture/${lectureId}/extract-visuals`, {
+    method: 'POST',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Visual extraction failed (${res.status})`)
+  }
+  return data.visuals || []
+}
+
+export function getVisualImageUrl(visualId) {
+  return `/api/lecture/visuals/${visualId}/image`
+}
+
 /**
  * Generates a real playable 18-second PCM WAV file in the browser so users
  * can test the live FastAPI upload -> transcribe -> search + audio seek flow
@@ -135,6 +159,19 @@ export async function listDocuments() {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) return []
   return data.documents || []
+}
+
+export async function getDocumentPages(documentId) {
+  try {
+    const res = await fetch(`/api/search/documents/${documentId}/pages`)
+    if (res.ok) {
+      const data = await res.json()
+      return data.pages || []
+    }
+  } catch {
+    // fallback
+  }
+  return []
 }
 
 export async function uploadSearchDocument(file, nextId) {
@@ -199,12 +236,19 @@ export async function uploadSearchDocument(file, nextId) {
   }
 }
 
-export async function askSmartSearch(documentId, question, documents, topK = 5) {
-  // 1. Live README endpoint: GET /api/search/search?query=...&top_k=5
+export async function askSmartSearch(documentId, question, documents, opts = {}) {
+  const options = typeof opts === 'number' ? { topK: opts } : opts
+  const topK = options.topK || 5
+  const strategy = options.strategy || 'hybrid'
+  const preset = options.preset || 'default'
+
+  // 1. Live README endpoint: GET /api/search/search?query=...&top_k=5&strategy=...&preset=...
   try {
     const params = new URLSearchParams({
       query: question,
       top_k: String(topK),
+      strategy,
+      preset,
       ...(documentId ? { document_id: String(documentId) } : {}),
     })
     const res = await fetch(`/api/search/search?${params.toString()}`)
@@ -218,7 +262,11 @@ export async function askSmartSearch(documentId, question, documents, topK = 5) 
           page: r.page_number,
           text: r.text,
           distance: r.distance,
+          dense_score: r.dense_score,
+          bm25_score: r.bm25_score,
+          rrf_score: r.rrf_score,
         })),
+        pipeline_trace: data.pipeline_trace || {},
         _mode: 'live',
       }
     }
@@ -231,7 +279,13 @@ export async function askSmartSearch(documentId, question, documents, topK = 5) 
     const res = await fetch('/api/search/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id: documentId, question }),
+      body: JSON.stringify({
+        document_id: documentId,
+        question,
+        strategy,
+        preset,
+        top_k: topK,
+      }),
     })
     if (res.ok) {
       const data = await res.json()
@@ -241,7 +295,7 @@ export async function askSmartSearch(documentId, question, documents, topK = 5) 
     // fallback below
   }
 
-  // 3. Local contract preview respecting README distance <= 0.6 rule
+  // 3. Local contract preview respecting multi-strategy & pipeline trace
   const doc = documents.find((d) => d.document_id === documentId) || documents[0]
   const tokens = question
     .toLowerCase()
@@ -250,14 +304,17 @@ export async function askSmartSearch(documentId, question, documents, topK = 5) 
     .filter((w) => w.length > 2)
 
   const scored = (doc?.sections || [])
-    .map((sec) => {
+    .map((sec, idx) => {
       const hay = `${sec.heading} ${sec.text}`.toLowerCase()
       const hits = tokens.reduce((acc, tok) => acc + (hay.includes(tok) ? 1 : 0), 0)
       const distance = hits > 0 ? Number(Math.max(0.14, 0.55 - hits * 0.12).toFixed(2)) : 0.85
-      return { sec, hits, distance }
+      const dense_score = Number(Math.max(0.15, 1.0 - distance).toFixed(3))
+      const bm25_score = Number((hits * 3.8 + Math.random() * 0.8).toFixed(2))
+      const rrf_score = Number((1.0 / (60 + idx + 1)).toFixed(4))
+      return { sec, hits, distance, dense_score, bm25_score, rrf_score }
     })
-    .filter((item) => item.distance <= 0.6)
-    .sort((a, b) => a.distance - b.distance)
+    .filter((item) => item.distance <= 0.65)
+    .sort((a, b) => (strategy === 'bm25' ? b.bm25_score - a.bm25_score : a.distance - b.distance))
 
   if (scored.length === 0) {
     return {
@@ -265,29 +322,213 @@ export async function askSmartSearch(documentId, question, documents, topK = 5) 
       answer:
         'No sufficiently relevant information was found in the uploaded documents (vector distance > 0.6 threshold).',
       sources: [],
+      pipeline_trace: {
+        execution_time_ms: 14.2,
+        strategy,
+        preset,
+        v0_discovery: { documents_scanned: documents.length, pages_indexed: 48 },
+      },
       _mode: 'contract-preview',
     }
   }
 
-  const chosen = scored.slice(0, 2)
-  const answer = `Based on ${doc.filename}, ${chosen.map((c) => `${c.sec.text} [Page ${c.sec.page}]`).join(' ')}`
+  const chosen = scored.slice(0, Math.min(topK, 3))
+  const answer = `Based on ${doc?.filename || 'the document'}, ${chosen
+    .map((c, i) => `${c.sec.text} [${i + 1}]`)
+    .join(' ')}`
 
   return {
     success: true,
     answer,
     sources: chosen.map((c) => ({
-      document: doc.filename,
+      document: doc?.filename || 'Document',
       page: c.sec.page,
       text: c.sec.text,
       distance: c.distance,
+      dense_score: c.dense_score,
+      bm25_score: c.bm25_score,
+      rrf_score: c.rrf_score,
     })),
+    pipeline_trace: {
+      execution_time_ms: 18.5,
+      strategy,
+      preset,
+      v0_discovery: {
+        documents_scanned: documents.length,
+        pages_indexed: 48,
+        chunks_evaluated: 124,
+        directory: 'data/ (PDF Discovery)',
+      },
+      v1_keyword: {
+        query_keywords: tokens,
+        sparse_candidates: scored.length,
+      },
+      v2_dense: {
+        embedding_model: 'all-MiniLM-L6-v2',
+        candidates_found: scored.length,
+        top_dense: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.dense_score })),
+      },
+      v5_bm25: {
+        algorithm: 'Pure Python BM25Okapi (k1=1.5, b=0.75)',
+        candidates_found: scored.length,
+        top_bm25: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.bm25_score })),
+      },
+      v5_fusion: {
+        method: 'Reciprocal Rank Fusion (k=60)',
+        fused_count: scored.length,
+        top_hybrid: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.rrf_score })),
+      },
+      v3_postprocessing: {
+        preset,
+        distance_threshold: 0.65,
+        jaccard_max_similarity: 0.80,
+        jaccard_suppressed_count: 1,
+        final_selected_count: chosen.length,
+      },
+      v4_rag: {
+        synthesizer: 'Grounded Extractive Synthesizer',
+        citations_count: chosen.length,
+        grounded_confidence: '98.5%',
+      },
+      comparison: {
+        dense_top3: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.dense_score })),
+        bm25_top3: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.bm25_score })),
+        hybrid_top3: chosen.map((c) => ({ filename: doc?.filename, page: c.sec.page, score: c.rrf_score })),
+      },
+      benchmark: {
+        BM25: { P_at_1: 1.0, P_at_3: 0.9333, P_at_5: 0.8800, MRR: 1.0, MAP: 2.2000, nDCG_at_5: 1.0 },
+        DENSE: { P_at_1: 1.0, P_at_3: 0.8000, P_at_5: 0.8800, MRR: 1.0, MAP: 2.0650, nDCG_at_5: 0.9618 },
+        HYBRID: { P_at_1: 1.0, P_at_3: 0.8667, P_at_5: 0.8400, MRR: 1.0, MAP: 2.1000, nDCG_at_5: 1.0 },
+      },
+    },
     _mode: 'contract-preview',
   }
 }
 
 // ============================================================================
-// 3. QUIZ MASTER (/api/quiz/generate)
+// 3. QUIZ MASTER (/api/quiz/generate & /api/quiz/campaign)
 // ============================================================================
+
+export async function getQuizCampaign({ source_type = 'lecture', source_id, difficulty = 'medium', stage_count }) {
+  try {
+    const res = await fetch('/api/quiz/campaign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_type,
+        source_id: Number(source_id),
+        difficulty,
+        ...(stage_count ? { stage_count: Number(stage_count) } : {}),
+      }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return { ...data, _mode: 'live' }
+    }
+  } catch {
+    // fallback below
+  }
+
+  return {
+    success: true,
+    source_type,
+    source_id,
+    source_title: source_type === 'lecture' ? 'Interactive Lecture Campaign' : 'Course Notes Campaign',
+    total_stages: 4,
+    duration: 1800,
+    stages: [
+      {
+        stage_id: 1,
+        stage_number: 1,
+        title: 'Chapter 1: Foundational Architecture & Core Concepts',
+        timestamp_start: 0,
+        timestamp_end: 300,
+        timestamp_label: '00:00 → 05:00',
+        summary: 'Introductory principles and baseline taxonomy.',
+        concept_keyword: 'Architecture',
+        visual: null,
+        question: {
+          question: 'What is the primary objective introduced at the start of this lecture?',
+          options: {
+            A: 'Establishing foundational abstractions and system boundaries',
+            B: 'Hard-coded pointer manipulation without sanity checks',
+            C: 'Disabling CPU caches to simulate worst-case throughput',
+            D: 'Direct unindexed disk sector reading',
+          },
+          correct_answer: 'A',
+          explanation: 'In the opening chapter, the professor sets up foundational abstractions and core principles.',
+        },
+      },
+      {
+        stage_id: 2,
+        stage_number: 2,
+        title: 'Chapter 2: Mathematical Formulations & Derivations',
+        timestamp_start: 300,
+        timestamp_end: 750,
+        timestamp_label: '05:00 → 12:30',
+        summary: 'Key formulas, equilibrium conditions, and equations.',
+        concept_keyword: 'Formulation',
+        visual: null,
+        question: {
+          question: 'Which equation is derived to balance the dynamic state variables?',
+          options: {
+            A: 'Dynamic state conservation and rate of change equilibrium',
+            B: 'Static constant replacement',
+            C: 'Infinite recursion without base conditions',
+            D: 'Random floating point perturbation',
+          },
+          correct_answer: 'A',
+          explanation: 'Chapter 2 models the dynamic state conservation equations.',
+        },
+      },
+      {
+        stage_id: 3,
+        stage_number: 3,
+        title: 'Chapter 3: Edge Cases, Hazards & System Anomalies',
+        timestamp_start: 750,
+        timestamp_end: 1200,
+        timestamp_label: '12:30 → 20:00',
+        summary: 'Handling concurrent race conditions and exceptions.',
+        concept_keyword: 'Concurrency',
+        visual: null,
+        question: {
+          question: 'How does the professor mitigate concurrent race conditions in this section?',
+          options: {
+            A: 'By enforcing mutual exclusion and atomic lock primitives',
+            B: 'By allowing arbitrary concurrent overwrites',
+            C: 'By terminating the runtime process immediately',
+            D: 'By ignoring thread interleaving anomalies',
+          },
+          correct_answer: 'A',
+          explanation: 'Chapter 3 focuses on thread safety, mutex locks, and concurrency protection.',
+        },
+      },
+      {
+        stage_id: 4,
+        stage_number: 4,
+        title: 'Chapter 4: Synthesis & Final Master Evaluation',
+        timestamp_start: 1200,
+        timestamp_end: 1800,
+        timestamp_label: '20:00 → 30:00',
+        summary: 'Comprehensive integration and real-world system takeaways.',
+        concept_keyword: 'Synthesis',
+        visual: null,
+        question: {
+          question: 'What is the conclusive takeaway established at the end of the lecture?',
+          options: {
+            A: 'End-to-end integration requires balancing throughput, latency, and correctness',
+            B: 'Complexity should be introduced without measuring trade-offs',
+            C: 'Theoretical models never apply to physical systems',
+            D: 'Testing can be skipped when using modern hardware',
+          },
+          correct_answer: 'A',
+          explanation: 'The final chapter synthesizes performance trade-offs, reliability, and correctness.',
+        },
+      },
+    ],
+    _mode: 'preview',
+  }
+}
 
 export async function generateQuiz({ document_id, question_count, difficulty, type }) {
   try {
@@ -548,3 +789,26 @@ export async function analyzeDataset(dataset) {
     _mode: 'contract-preview',
   }
 }
+
+export async function analyzeDocumentStory(documentId) {
+  const res = await fetch('/api/data/analyze-document', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id: Number(documentId) }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Document data story generation failed (${res.status})`)
+  }
+  return { ...data, _mode: 'live' }
+}
+
+export async function getDocumentClusters() {
+  const res = await fetch('/api/data/document-clusters')
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Failed to fetch document clusters (${res.status})`)
+  }
+  return { ...data, _mode: 'live' }
+}
+

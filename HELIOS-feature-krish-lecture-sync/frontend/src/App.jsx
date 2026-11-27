@@ -362,6 +362,7 @@ export default function App() {
               activeDocId={activeDocId}
               onActivity={pushActivity}
               backendOnline={backendOnline}
+              onNavigate={setActiveTab}
               onQuizComplete={() =>
                 setStats((prev) => ({ ...prev, quizzes: prev.quizzes + 1 }))
               }
@@ -373,7 +374,12 @@ export default function App() {
           )}
 
           {activeTab === 'data-storyteller' && (
-            <DataStoryteller backendOnline={backendOnline} onActivity={pushActivity} />
+            <DataStoryteller
+              documents={documents}
+              activeDocId={activeDocId}
+              backendOnline={backendOnline}
+              onActivity={pushActivity}
+            />
           )}
 
           {activeTab === 'brain-map' && (
