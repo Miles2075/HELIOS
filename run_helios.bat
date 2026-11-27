@@ -6,7 +6,6 @@ echo ===================================================
 echo.
 
 cd /d "%~dp0"
-if exist "HELIOS-feature-krish-lecture-sync" cd HELIOS-feature-krish-lecture-sync
 
 if not exist ".venv\Scripts\python.exe" (
     echo [ERROR] Virtual environment not found in .venv!
