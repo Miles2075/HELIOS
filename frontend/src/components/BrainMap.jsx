@@ -44,7 +44,7 @@ export default function BrainMap({
       const docId = String(doc.document_id ?? doc.id ?? idx + 1);
       const title = doc.title || doc.filename || doc.fileName || `Document ${idx + 1}`;
       const fileName = doc.filename || doc.fileName || `document_${idx + 1}.pdf`;
-      const courseCode = doc.subject || doc.courseCode || 'CS-301';
+      const courseCode = doc.subject || doc.courseCode || 'General';
       const courseName = doc.courseName || doc.subject || title;
       const masteryPercent = doc.progress ?? doc.masteryPercent ?? 80;
       const lastChapter = doc.lastChapter || 'Chapter 1: Overview';
@@ -129,13 +129,12 @@ export default function BrainMap({
       // Local / Offline fallback generation tailored to focus topic and actual documents
       await new Promise((r) => setTimeout(r, 600));
 
+      if (!studyDocuments || studyDocuments.length === 0) {
+        throw new Error('Please upload study documents in Smart Search first to extract concepts.');
+      }
+
       const lowerTopic = topicLabel.toLowerCase();
-      // Generate topic-focused subset or adapted graph
-      const baseDocs = studyDocuments.length >= 2 ? studyDocuments : [
-        { id: 'os', fileName: 'Operating_Systems.pdf', title: 'Operating Systems' },
-        { id: 'db', fileName: 'Database_Systems.pdf', title: 'Database Systems' },
-        { id: 'dist', fileName: 'Distributed_Systems.pdf', title: 'Distributed Systems' },
-      ];
+      const baseDocs = studyDocuments;
 
       const docNodes = baseDocs.slice(0, 3).map((d) => ({
         id: `doc-${d.id}`,

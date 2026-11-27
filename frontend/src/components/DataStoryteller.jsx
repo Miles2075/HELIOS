@@ -27,7 +27,6 @@ import {
   parseCsvText,
   uploadDataset,
 } from '../api/client'
-import { SAMPLE_DATASET_CSV } from '../data/mockCorpus'
 
 const PIE_COLORS = [
   '#f472b6',
@@ -338,7 +337,7 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
     } catch {
       // ignore
     }
-    return activeDocId || documents[0]?.document_id || 1
+    return activeDocId || documents[0]?.document_id || null
   })
   const [docStory, setDocStory] = useState(null)
   const [loadingDocStory, setLoadingDocStory] = useState(false)
@@ -351,15 +350,11 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
 
   // Tabular Dataset State
   const [datasets, setDatasets] = useState([])
-  const [dataset, setDataset] = useState({
-    dataset_id: 1,
-    filename: 'experiment_results.csv',
-    parsed: parseCsvText(SAMPLE_DATASET_CSV),
-  })
+  const [dataset, setDataset] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [chartType, setChartType] = useState('scatter')
-  const [xCol, setXCol] = useState('temperature')
-  const [yCol, setYCol] = useState('growth')
+  const [xCol, setXCol] = useState('')
+  const [yCol, setYCol] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [tablePage, setTablePage] = useState(0)
@@ -374,15 +369,23 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
       listDocuments()
         .then((res) => {
           if (!active) return
-          if (res?.documents?.length) {
-            setDocList(res.documents)
-            if (!selectedDocId) setSelectedDocId(res.documents[0].document_id)
+          const items = Array.isArray(res) ? res : res?.documents || []
+          setDocList(items)
+          if (items.length > 0) {
+            setSelectedDocId(items[0].document_id || items[0].id)
+          } else {
+            setSelectedDocId(null)
+            setDocStory(null)
           }
         })
         .catch(() => {})
     } else {
       setDocList(documents)
-      if (!selectedDocId && documents[0]) setSelectedDocId(documents[0].document_id)
+      if (documents.length > 0) {
+        setSelectedDocId(documents[0].document_id || documents[0].id)
+      } else {
+        setSelectedDocId(null)
+      }
     }
     return () => {
       active = false
@@ -462,18 +465,19 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
     ;(async () => {
       const serverDatasets = await listDatasets()
       if (!active) return
-      let targetDs = dataset
-      if (serverDatasets.length > 0) {
+      if (serverDatasets && serverDatasets.length > 0) {
         setDatasets(serverDatasets)
-        targetDs = serverDatasets[0]
+        const targetDs = serverDatasets[0]
         setDataset(targetDs)
+        const res = await analyzeDataset(targetDs)
+        if (!active) return
+        setAnalysis(res)
+        applyChartCols(res)
       } else {
-        setDatasets([dataset])
+        setDatasets([])
+        setDataset(null)
+        setAnalysis(null)
       }
-      const res = await analyzeDataset(targetDs)
-      if (!active) return
-      setAnalysis(res)
-      applyChartCols(res)
     })()
     return () => {
       active = false
@@ -628,31 +632,44 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
                 Target PDF Document:
               </span>
 
-              <select
-                value={selectedDocId}
-                onChange={(e) => {
-                  const id = Number(e.target.value)
-                  setSelectedDocId(id)
-                  loadDocStory(id)
-                }}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border outline-none max-w-lg cursor-pointer"
-                style={{
-                  background: 'var(--bg-input)',
-                  borderColor: 'var(--border-strong)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                {docList.map((d) => (
-                  <option key={d.document_id || d.id} value={d.document_id || d.id}>
-                    📄 {d.filename} ({d.pages || d.page_count || 1} pages)
-                  </option>
-                ))}
-              </select>
+              {docList.length === 0 ? (
+                <div
+                  className="px-3.5 py-2 rounded-xl text-xs font-medium border"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  No documents uploaded yet (Upload in Smart Search)
+                </div>
+              ) : (
+                <select
+                  value={selectedDocId || ''}
+                  onChange={(e) => {
+                    const id = Number(e.target.value)
+                    setSelectedDocId(id)
+                    loadDocStory(id)
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border outline-none max-w-lg cursor-pointer"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {docList.map((d) => (
+                    <option key={d.document_id || d.id} value={d.document_id || d.id}>
+                      📄 {d.filename} ({d.pages || d.page_count || 1} pages)
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <button
               type="button"
-              disabled={loadingDocStory}
+              disabled={loadingDocStory || !selectedDocId}
               onClick={() => loadDocStory(selectedDocId)}
               className="helios-btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -661,7 +678,15 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
             </button>
           </div>
 
-          {docStoryError && (
+          {docList.length === 0 ? (
+            <div className="helios-card p-12 text-center flex flex-col items-center justify-center min-h-[300px] gap-2 border" style={{ borderColor: 'var(--border-subtle)' }}>
+              <BookOpen className="w-10 h-10 mb-2 opacity-40" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-base font-bold m-0" style={{ color: 'var(--text-primary)' }}>No Documents Available for Data Story</h3>
+              <p className="text-xs max-w-sm m-0" style={{ color: 'var(--text-secondary)' }}>
+                Upload research papers or study materials in Smart Search to extract their empirical narrative and interactive data markers.
+              </p>
+            </div>
+          ) : docStoryError ? (
             <div
               className="p-3.5 rounded-xl border flex items-center gap-2 text-sm"
               style={{
@@ -673,7 +698,7 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{docStoryError}</span>
             </div>
-          )}
+          ) : null}
 
           {loadingDocStory ? (
             <div className="helios-card p-12 text-center flex flex-col items-center justify-center min-h-[340px] gap-3">
@@ -1060,9 +1085,9 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
           >
             <div className="flex items-center gap-3 flex-wrap flex-1">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Spreadsheet:</span>
-              {datasets.length > 0 && (
+              {datasets.length > 0 ? (
                 <select
-                  value={dataset.dataset_id}
+                  value={dataset?.dataset_id || ''}
                   onChange={(e) => {
                     const found = datasets.find((d) => d.dataset_id === Number(e.target.value))
                     if (found) {
@@ -1083,6 +1108,10 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
                     </option>
                   ))}
                 </select>
+              ) : (
+                <span className="text-xs px-3 py-1.5 rounded-xl border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  No spreadsheets uploaded
+                </span>
               )}
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border"
@@ -1133,6 +1162,16 @@ export default function DataStoryteller({ documents = [], activeDocId, backendOn
               {error}
             </div>
           )}
+
+      {!analysis && !loading && (
+        <div className="helios-card p-12 text-center flex flex-col items-center justify-center min-h-[300px] gap-2 border" style={{ borderColor: 'var(--border-subtle)' }}>
+          <BarChart3 className="w-10 h-10 mb-2 opacity-40" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-base font-bold m-0" style={{ color: 'var(--text-primary)' }}>No Dataset Analyzed Yet</h3>
+          <p className="text-xs max-w-sm m-0" style={{ color: 'var(--text-secondary)' }}>
+            Upload a CSV or XLSX spreadsheet above to generate dynamic Plotly charts, statistical correlations, and AI summaries.
+          </p>
+        </div>
+      )}
 
       {analysis && (
         <>
