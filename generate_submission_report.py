@@ -222,14 +222,14 @@ html_content = r"""<!DOCTYPE html>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Krish (Lead)</strong></td>
-          <td>Lecture Sync, PyAV Keyframe Codec & Media Player</td>
-          <td><code>feature/krish-lecture-sync</code></td>
-        </tr>
-        <tr>
-          <td><strong>Krishi</strong></td>
+          <td><strong>Krishi (Project Lead)</strong></td>
           <td>Smart Search, ChromaDB Neural Retrieval & RRF</td>
           <td><code>feature/krishi-smart-search</code></td>
+        </tr>
+        <tr>
+          <td><strong>Krish</strong></td>
+          <td>Lecture Sync, PyAV Keyframe Codec & Media Player</td>
+          <td><code>feature/krish-lecture-sync</code></td>
         </tr>
         <tr>
           <td><strong>Vinit</strong></td>
@@ -359,7 +359,7 @@ HELIOS utilizes a decoupled, high-performance client-server architecture built e
 <!-- ================= 3. CORE MODULES ================= -->
 <h1 class="sec-title">3. The 5 Core Modules — Group Implementation</h1>
 
-<h2 class="sub-title">3.1 Module 1: Smart Search (Lead: Krishi · Branch: feature/krishi-smart-search)</h2>
+<h2 class="sub-title">3.1 Module 1: Smart Search (Project Lead: Krishi · Branch: feature/krishi-smart-search)</h2>
 <p>
 Smart Search ingests multi-page academic textbooks (e.g., <code>heat12.pdf</code>, 64 pages) and provides two search paradigms:
 </p>
