@@ -28,5 +28,5 @@ Start-Process -FilePath "cmd.exe" `
 Write-Host "[3/3] Waiting 3 seconds for services to boot..." -ForegroundColor Yellow
 Start-Sleep -Seconds 3
 
-Write-Host "HELIOS is live! Opening http://127.0.0.1:8000 in your browser..." -ForegroundColor Green
-Start-Process "http://127.0.0.1:8000"
+Write-Host "HELIOS is live! Opening http://127.0.0.1:5173 in your browser..." -ForegroundColor Green
+Start-Process "http://127.0.0.1:5173"
