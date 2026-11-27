@@ -1,4 +1,3 @@
-import { BRAIN_MAPS, QUIZ_BANK, SAMPLE_DATASET_CSV } from '../data/mockCorpus'
 
 // --- Health check against FastAPI root ---
 export async function checkBackendHealth() {
@@ -303,6 +302,17 @@ export async function askSmartSearch(documentId, question, documents, opts = {})
 
   // 3. Local contract preview respecting multi-strategy & pipeline trace
   const doc = documents.find((d) => d.document_id === documentId) || documents[0]
+  if (!doc) {
+    return {
+      answer: 'No indexed documents found in knowledge base. Upload documents in Smart Search to perform hybrid neural search.',
+      sources: [],
+      query: question,
+      document_id: documentId,
+      strategy: 'hybrid_rrf',
+      retrieval_trace: [],
+      latency_ms: 5,
+    }
+  }
   const tokens = question
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -416,153 +426,40 @@ export async function askSmartSearch(documentId, question, documents, opts = {})
 // ============================================================================
 
 export async function getQuizCampaign({ source_type = 'lecture', source_id, difficulty = 'medium', stage_count }) {
-  try {
-    const res = await fetch('/api/quiz/campaign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source_type,
-        source_id: Number(source_id),
-        difficulty,
-        ...(stage_count ? { stage_count: Number(stage_count) } : {}),
-      }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      return { ...data, _mode: 'live' }
-    }
-  } catch {
-    // fallback below
+  if (!source_id) {
+    throw new Error('No study material selected.')
   }
-
-  return {
-    success: true,
-    source_type,
-    source_id,
-    source_title: source_type === 'lecture' ? 'Interactive Lecture Campaign' : 'Course Notes Campaign',
-    total_stages: 4,
-    duration: 1800,
-    stages: [
-      {
-        stage_id: 1,
-        stage_number: 1,
-        title: 'Chapter 1: Foundational Architecture & Core Concepts',
-        timestamp_start: 0,
-        timestamp_end: 300,
-        timestamp_label: '00:00 → 05:00',
-        summary: 'Introductory principles and baseline taxonomy.',
-        concept_keyword: 'Architecture',
-        visual: null,
-        question: {
-          question: 'What is the primary objective introduced at the start of this lecture?',
-          options: {
-            A: 'Establishing foundational abstractions and system boundaries',
-            B: 'Hard-coded pointer manipulation without sanity checks',
-            C: 'Disabling CPU caches to simulate worst-case throughput',
-            D: 'Direct unindexed disk sector reading',
-          },
-          correct_answer: 'A',
-          explanation: 'In the opening chapter, the professor sets up foundational abstractions and core principles.',
-        },
-      },
-      {
-        stage_id: 2,
-        stage_number: 2,
-        title: 'Chapter 2: Mathematical Formulations & Derivations',
-        timestamp_start: 300,
-        timestamp_end: 750,
-        timestamp_label: '05:00 → 12:30',
-        summary: 'Key formulas, equilibrium conditions, and equations.',
-        concept_keyword: 'Formulation',
-        visual: null,
-        question: {
-          question: 'Which equation is derived to balance the dynamic state variables?',
-          options: {
-            A: 'Dynamic state conservation and rate of change equilibrium',
-            B: 'Static constant replacement',
-            C: 'Infinite recursion without base conditions',
-            D: 'Random floating point perturbation',
-          },
-          correct_answer: 'A',
-          explanation: 'Chapter 2 models the dynamic state conservation equations.',
-        },
-      },
-      {
-        stage_id: 3,
-        stage_number: 3,
-        title: 'Chapter 3: Edge Cases, Hazards & System Anomalies',
-        timestamp_start: 750,
-        timestamp_end: 1200,
-        timestamp_label: '12:30 → 20:00',
-        summary: 'Handling concurrent race conditions and exceptions.',
-        concept_keyword: 'Concurrency',
-        visual: null,
-        question: {
-          question: 'How does the professor mitigate concurrent race conditions in this section?',
-          options: {
-            A: 'By enforcing mutual exclusion and atomic lock primitives',
-            B: 'By allowing arbitrary concurrent overwrites',
-            C: 'By terminating the runtime process immediately',
-            D: 'By ignoring thread interleaving anomalies',
-          },
-          correct_answer: 'A',
-          explanation: 'Chapter 3 focuses on thread safety, mutex locks, and concurrency protection.',
-        },
-      },
-      {
-        stage_id: 4,
-        stage_number: 4,
-        title: 'Chapter 4: Synthesis & Final Master Evaluation',
-        timestamp_start: 1200,
-        timestamp_end: 1800,
-        timestamp_label: '20:00 → 30:00',
-        summary: 'Comprehensive integration and real-world system takeaways.',
-        concept_keyword: 'Synthesis',
-        visual: null,
-        question: {
-          question: 'What is the conclusive takeaway established at the end of the lecture?',
-          options: {
-            A: 'End-to-end integration requires balancing throughput, latency, and correctness',
-            B: 'Complexity should be introduced without measuring trade-offs',
-            C: 'Theoretical models never apply to physical systems',
-            D: 'Testing can be skipped when using modern hardware',
-          },
-          correct_answer: 'A',
-          explanation: 'The final chapter synthesizes performance trade-offs, reliability, and correctness.',
-        },
-      },
-    ],
-    _mode: 'preview',
+  const res = await fetch('/api/quiz/campaign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source_type,
+      source_id: Number(source_id),
+      difficulty,
+      ...(stage_count ? { stage_count: Number(stage_count) } : {}),
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Failed to load campaign (${res.status})`)
   }
+  return { ...data, _mode: 'live' }
 }
 
 export async function generateQuiz({ document_id, question_count, difficulty, type }) {
-  try {
-    const res = await fetch('/api/quiz/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id, question_count, difficulty, type }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      return { ...data, _mode: 'live' }
-    }
-  } catch {
-    // fallback below
+  if (!document_id) {
+    throw new Error('No document selected.')
   }
-
-  const bank = QUIZ_BANK[document_id] || QUIZ_BANK[1]
-  const pool = bank[type] || bank.mcq
-  const questions = pool.slice(0, Math.min(question_count, pool.length))
-
-  return {
-    success: true,
-    quiz_id: 100 + Math.floor(Math.random() * 900),
-    difficulty,
-    type,
-    questions,
-    _mode: 'contract-preview',
+  const res = await fetch('/api/quiz/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id, question_count, difficulty, type }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Quiz generation failed (${res.status})`)
   }
+  return { ...data, _mode: 'live' }
 }
 
 // ============================================================================
@@ -586,10 +483,6 @@ export async function generateBrainMap(documentId, documents) {
     }
   } catch (e) {
     if (e.message && !e.message.includes('fetch')) throw e
-  }
-
-  if (BRAIN_MAPS[documentId]) {
-    return { ...BRAIN_MAPS[documentId], _mode: 'contract-preview' }
   }
 
   const doc = documents.find((d) => d.document_id === documentId)
@@ -706,94 +599,19 @@ export async function uploadDataset(file, nextId) {
 }
 
 export async function analyzeDataset(dataset) {
-  try {
-    const res = await fetch('/api/data/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataset_id: dataset.dataset_id }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      return { ...data, _mode: 'live' }
-    }
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || `Analysis failed (${res.status})`)
-  } catch (err) {
-    if (err.message && !err.message.includes('fetch') && !dataset.parsed) {
-      throw err
-    }
+  if (!dataset || !dataset.dataset_id) {
+    throw new Error('No dataset provided for analysis.')
   }
-
-  const parsed = dataset.parsed || parseCsvText(SAMPLE_DATASET_CSV)
-  const { headers, rows } = parsed
-  const numericCols = headers.filter((h) => rows.some((r) => typeof r[h] === 'number'))
-  const targetCol = numericCols[numericCols.length - 1] || numericCols[0]
-
-  const computeStats = (col) => {
-    const vals = rows.map((r) => r[col]).filter((v) => typeof v === 'number' && !Number.isNaN(v))
-    if (!vals.length) return { mean: 0, median: 0, min: 0, max: 0, std: 0 }
-    const sorted = [...vals].sort((a, b) => a - b)
-    const mean = vals.reduce((a, b) => a + b, 0) / vals.length
-    const mid = Math.floor(sorted.length / 2)
-    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-    const variance = vals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / vals.length
-    return {
-      mean: Number(mean.toFixed(2)),
-      median: Number(median.toFixed(2)),
-      min: Number(sorted[0].toFixed(2)),
-      max: Number(sorted[sorted.length - 1].toFixed(2)),
-      std: Number(Math.sqrt(variance).toFixed(2)),
-    }
-  }
-
-  const columnInfo = {}
-  headers.forEach((col) => {
-    const vals = rows.map((r) => r[col])
-    const missing = vals.filter((v) => v === '' || v === null || v === undefined).length
-    const nonEmpty = vals.filter((v) => v !== '' && v !== null && v !== undefined)
-    const isNum = nonEmpty.length > 0 && nonEmpty.every((v) => typeof v === 'number')
-    columnInfo[col] = {
-      data_type: isNum ? 'float64' : 'object',
-      missing_values: missing,
-      unique_values: new Set(nonEmpty).size,
-    }
+  const res = await fetch('/api/data/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset_id: dataset.dataset_id }),
   })
-
-  const columnStats = {}
-  numericCols.forEach((c) => {
-    columnStats[c] = computeStats(c)
-  })
-
-  const primaryStats = columnStats[targetCol] || { mean: 0, median: 0, min: 0, max: 0, std: 0 }
-  const xCol = numericCols[0] || headers[0]
-  const yCol = numericCols.length > 1 ? numericCols[numericCols.length - 2] : targetCol
-  const maxRow = rows.reduce((best, r) => (r[yCol] > (best?.[yCol] ?? -Infinity) ? r : best), rows[0])
-
-  return {
-    success: true,
-    dataset_id: dataset.dataset_id,
-    summary: {
-      rows: rows.length,
-      columns: headers.length,
-    },
-    columns: columnInfo,
-    statistics: {
-      mean: primaryStats.mean,
-      median: primaryStats.median,
-      min: primaryStats.min,
-      max: primaryStats.max,
-      std: primaryStats.std,
-      primary_column: targetCol,
-      by_column: columnStats,
-    },
-    charts: [
-      { type: 'scatter', x: xCol, y: yCol, title: `${xCol} vs ${yCol}` },
-      { type: 'bar', x: xCol, y: targetCol, title: `${targetCol} across ${xCol}` },
-    ],
-    ai_summary: `Analyzed ${rows.length} rows across ${headers.length} columns in ${dataset.filename}. "${yCol}" peaks at ${maxRow?.[yCol]} when ${xCol} = ${maxRow?.[xCol]}. Across "${targetCol}", mean is ${primaryStats.mean}, median is ${primaryStats.median}, and std dev is ${primaryStats.std}.`,
-    parsed,
-    _mode: 'contract-preview',
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || `Analysis failed (${res.status})`)
   }
+  return { ...data, _mode: 'live' }
 }
 
 export async function analyzeDocumentStory(documentId) {

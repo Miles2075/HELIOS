@@ -366,7 +366,7 @@ def extract_brain_graph(request: ExtractGraphRequest):
                         id=str(dd["id"]),
                         title=dd["filename"],
                         fileName=dd["filename"],
-                        courseCode="CS-301",
+                        courseCode="General",
                         pages=[
                             PageInputModel(pageNumber=p["page_number"], content=p["text"] or "")
                             for p in pages_rows

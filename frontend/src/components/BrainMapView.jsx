@@ -1200,6 +1200,17 @@ export function BrainMapView({
             </svg>
           )}
 
+          {/* Empty state when no nodes are mapped */}
+          {(!graph.nodes || graph.nodes.length === 0) && !isExtracting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 pointer-events-none">
+              <Brain className="w-12 h-12 mb-3 opacity-30" style={{ color: 'var(--h-accent)' }} />
+              <h4 className="text-base font-bold m-0" style={{ color: 'var(--h-text)' }}>No Concepts Mapped Yet</h4>
+              <p className="text-xs max-w-sm mt-1" style={{ color: 'var(--h-text-dim)' }}>
+                Upload notes or study materials in Smart Search, then extract concepts above to render your interactive Knowledge Graph.
+              </p>
+            </div>
+          )}
+
           {/* Top-left extraction overlay badge while AI is building */}
           {isExtracting && (
             <div
