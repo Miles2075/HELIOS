@@ -54,6 +54,42 @@ def test_all_five_modules_end_to_end(tmp_path, monkeypatch):
     assert ask_res.status_code == 200
     assert len(ask_res.json()["sources"]) >= 1
 
+    # Smart Search QA endpoints (/api/qa/ask and /api/qa/search-all)
+    qa_ask_res = client.post(
+        "/api/qa/ask",
+        json={
+            "documentTitle": "plant_bio.txt",
+            "question": "Where does the Calvin Cycle occur?",
+            "pages": [
+                {"pageNumber": 1, "title": "Photosynthesis", "content": "The Calvin Cycle uses ATP and NADPH inside the chloroplast stroma to fix carbon dioxide."}
+            ]
+        },
+    )
+    assert qa_ask_res.status_code == 200
+    qa_body = qa_ask_res.json()
+    assert qa_body["foundInDocument"] is True
+    assert len(qa_body["citations"]) >= 1
+
+    qa_all_res = client.post(
+        "/api/qa/search-all",
+        json={
+            "question": "What is RuBisCO and carbon dioxide fixation?",
+            "documents": [
+                {
+                    "id": str(doc_id),
+                    "title": "plant_bio.txt",
+                    "fileName": "plant_bio.txt",
+                    "pages": [
+                        {"pageNumber": 1, "title": "Photosynthesis", "content": "The Calvin Cycle uses ATP and NADPH inside the chloroplast stroma to fix carbon dioxide via RuBisCO."}
+                    ]
+                }
+            ]
+        },
+    )
+    assert qa_all_res.status_code == 200
+    assert qa_all_res.json()["foundInDocument"] is True
+    assert len(qa_all_res.json()["citations"]) >= 1
+
     # 2. Quiz Master: MCQ, True/False, Flashcards from uploaded document
     for q_type in ("mcq", "true_false", "flashcard"):
         q_res = client.post(
@@ -99,7 +135,7 @@ def test_all_five_modules_end_to_end(tmp_path, monkeypatch):
     ds_an = client.post("/api/data/analyze", json={"dataset_id": dataset_id})
     assert ds_an.status_code == 200
     an_body = ds_an.json()
-    assert an_body["success"] is True
+    assert bool(an_body["success"]) is True
     assert an_body["summary"]["rows"] == 4
     assert an_body["summary"]["columns"] == 3
     assert "temperature" in an_body["columns"]

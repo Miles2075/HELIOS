@@ -1,0 +1,14 @@
+[project]
+name = "helios"
+version = "1.0.0"
+description = "HELIOS Multimodal AI Study Assistant"
+requires-python = ">=3.11"
+
+[tool.pyrefly]
+python-interpreter = ".venv/Scripts/python.exe"
+search-paths = [".", "backend", ".venv/Lib/site-packages"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = [".", "backend", ".venv/Lib/site-packages"]
