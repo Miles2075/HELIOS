@@ -17,6 +17,7 @@ import {
   Filter,
   Layers,
   Loader2,
+  Play,
   RefreshCw,
   Scale,
   Search,
