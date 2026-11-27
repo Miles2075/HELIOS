@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
-import networkx as nx
+import networkx as nx  # type: ignore
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -232,7 +232,12 @@ def _extract_concepts_and_graph(filename: str, text: str) -> nx.DiGraph:
             score=score,
         )
 
-    node_items = [(nid, data["label"]) for nid, data in G.nodes(data=True) if nid != root_id]
+    node_items = []
+    for item in G.nodes(data=True):
+        nid = item[0]
+        data = item[1] if len(item) > 1 and isinstance(item[1], dict) else {}
+        if nid != root_id:
+            node_items.append((nid, str(data.get("label", nid))))
     edge_counts: Dict[Tuple[str, str], Tuple[str, int]] = {}
 
     for sent in sentences:
@@ -274,26 +279,33 @@ def generate_brain_map(request: GenerateRequest):
 
     graph = _extract_concepts_and_graph(filename, text)
 
-    nodes = [
-        NodeModel(
-            id=str(nid),
-            label=str(data.get("label", nid)),
-            type=str(data.get("type", "concept")),
-            summary=str(data.get("summary", "")),
+    nodes = []
+    for item in list(graph.nodes(data=True))[:MAX_NODES]:
+        nid = item[0]
+        data = item[1] if len(item) > 1 and isinstance(item[1], dict) else {}
+        nodes.append(
+            NodeModel(
+                id=str(nid),
+                label=str(data.get("label", nid)),
+                type=str(data.get("type", "concept")),
+                summary=str(data.get("summary", "")),
+            )
         )
-        for nid, data in list(graph.nodes(data=True))[:MAX_NODES]
-    ]
     valid_ids = {n.id for n in nodes}
 
-    edges = [
-        EdgeModel(
-            source=str(u),
-            target=str(v),
-            relationship=str(data.get("relationship", "relates_to")),
-        )
-        for u, v, data in list(graph.edges(data=True))[:MAX_EDGES]
-        if str(u) in valid_ids and str(v) in valid_ids
-    ]
+    edges = []
+    for edge in list(graph.edges(data=True))[:MAX_EDGES]:
+        if len(edge) >= 2:
+            u, v = edge[0], edge[1]
+            data = edge[2] if len(edge) > 2 and isinstance(edge[2], dict) else {}
+            if str(u) in valid_ids and str(v) in valid_ids:
+                edges.append(
+                    EdgeModel(
+                        source=str(u),
+                        target=str(v),
+                        relationship=str(data.get("relationship", "relates_to")),
+                    )
+                )
 
     return BrainMapResponse(
         success=True,
@@ -326,17 +338,22 @@ def export_pyvis_html(document_id: int):
         "hardware": "#fbbf24",
         "risk": "#fb7185",
     }
-    for nid, data in graph.nodes(data=True):
-        ntype = data.get("type", "concept")
+    for item in graph.nodes(data=True):
+        nid = item[0]
+        data = item[1] if len(item) > 1 and isinstance(item[1], dict) else {}
+        ntype = str(data.get("type", "concept"))
         net.add_node(
             nid,
-            label=data.get("label", nid),
-            title=data.get("summary", ""),
+            label=str(data.get("label", nid)),
+            title=str(data.get("summary", "")),
             color=color_map.get(ntype, "#f472b6"),
             size=26 if ntype == "core" else 18,
         )
-    for u, v, data in graph.edges(data=True):
-        net.add_edge(u, v, label=data.get("relationship", "relates_to"), color="#7f6271")
+    for edge in graph.edges(data=True):
+        if len(edge) >= 2:
+            u, v = edge[0], edge[1]
+            data = edge[2] if len(edge) > 2 and isinstance(edge[2], dict) else {}
+            net.add_edge(u, v, label=str(data.get("relationship", "relates_to")), color="#7f6271")
 
     html = net.generate_html()
     html = html.replace(
