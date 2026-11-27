@@ -99,7 +99,10 @@ export default function LectureSync({ backendOnline, onActivity }) {
           audioUrl: getLectureAudioUrl(r.lecture_id),
         }))
         setLectures(mapped)
-        setSelectedId((prev) => prev ?? mapped[0].lecture_id)
+        const params = new URLSearchParams(window.location.search)
+        const paramId = params.get('lectureId') ? Number(params.get('lectureId')) : null
+        const initialSelected = (paramId && mapped.find((m) => m.lecture_id === paramId)) ? paramId : mapped[0].lecture_id
+        setSelectedId((prev) => prev ?? initialSelected)
       })
       .catch(() => {})
     return () => {

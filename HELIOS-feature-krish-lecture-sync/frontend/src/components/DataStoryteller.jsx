@@ -317,11 +317,29 @@ function InteractiveChart({ rows, xCol, yCol, chartType }) {
 
 export default function DataStoryteller({ documents = [], activeDocId, backendOnline, onActivity }) {
   // Navigation: 'doc_story' (PDF Data Story) | 'clusters' (Topic Groups) | 'dataset' (Spreadsheet Analytics)
-  const [storyMode, setStoryMode] = useState('doc_story')
+  const [storyMode, setStoryMode] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const m = params.get('mode')
+      if (m && ['doc_story', 'clusters', 'dataset'].includes(m)) return m
+    } catch {
+      // ignore
+    }
+    return 'doc_story'
+  })
 
   // Document Data Story State
   const [docList, setDocList] = useState(documents)
-  const [selectedDocId, setSelectedDocId] = useState(activeDocId || documents[0]?.document_id || 1)
+  const [selectedDocId, setSelectedDocId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const d = params.get('docId')
+      if (d) return Number(d)
+    } catch {
+      // ignore
+    }
+    return activeDocId || documents[0]?.document_id || 1
+  })
   const [docStory, setDocStory] = useState(null)
   const [loadingDocStory, setLoadingDocStory] = useState(false)
   const [docStoryError, setDocStoryError] = useState('')

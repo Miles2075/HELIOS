@@ -46,7 +46,29 @@ const THEME_CONFIG = {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get('tab') || window.location.hash.replace('#', '')
+      if (tabParam && ['dashboard', 'smart-search', 'quiz-master', 'lecture-sync', 'data-storyteller', 'brain-map'].includes(tabParam)) {
+        return tabParam
+      }
+    } catch {
+      // ignore
+    }
+    return 'dashboard'
+  })
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    try {
+      const url = new URL(window.location)
+      url.searchParams.set('tab', tabId)
+      window.history.replaceState({}, '', url)
+    } catch {
+      // ignore
+    }
+  }
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('helios_theme') || 'obsidian'
   })
@@ -175,7 +197,7 @@ export default function App() {
         <div className="flex items-center gap-3.5 min-w-0">
           <button
             type="button"
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
             className="flex items-center gap-2.5 cursor-pointer shrink-0"
           >
             <span
@@ -326,7 +348,7 @@ export default function App() {
                 key={item.id}
                 type="button"
                 title={item.label}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 className="relative w-11 h-11 rounded-xl flex items-center justify-center border transition-all cursor-pointer group"
                 style={{
                   background: active ? 'var(--accent-soft)' : 'transparent',
@@ -428,7 +450,7 @@ export default function App() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleTabChange(item.id)}
               className="p-2.5 rounded-xl cursor-pointer"
               style={{
                 background: active ? 'var(--accent-soft)' : 'transparent',
