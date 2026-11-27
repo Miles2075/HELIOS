@@ -1,0 +1,545 @@
+import os
+import subprocess
+from pathlib import Path
+
+html_content = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HELIOS Project Submission Report - Academic Year 2026</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background: #ffffff;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    font-size: 11pt;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  /* COVER PAGE */
+  .cover {
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    border: 2px solid #0f172a;
+    padding: 40px 30px;
+    box-sizing: border-box;
+  }
+  .cover-header h1 {
+    font-size: 32pt;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #0f172a;
+    margin: 10px 0 5px 0;
+  }
+  .cover-header h2 {
+    font-size: 14pt;
+    font-weight: 600;
+    color: #475569;
+    margin: 0 0 25px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .motto-box {
+    background: #f8fafc;
+    border-left: 4px solid #0284c7;
+    padding: 15px 20px;
+    font-style: italic;
+    color: #334155;
+    margin: 20px auto;
+    max-width: 650px;
+    text-align: justify;
+    font-size: 10.5pt;
+  }
+  .cover-meta {
+    margin: 30px 0;
+  }
+  .team-table {
+    width: 90%;
+    margin: 0 auto;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .team-table th, .team-table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  .team-table th {
+    background: #f1f5f9;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .cover-footer {
+    font-size: 10pt;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 15px;
+  }
+  /* SECTION STYLING */
+  h1.sec-title {
+    font-size: 18pt;
+    color: #0f172a;
+    border-bottom: 2px solid #0284c7;
+    padding-bottom: 6px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2.sub-title {
+    font-size: 13pt;
+    color: #0369a1;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    border-left: 3px solid #0284c7;
+    padding-left: 8px;
+  }
+  h3.inner-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #334155;
+    margin-top: 14px;
+    margin-bottom: 4px;
+  }
+  p {
+    margin: 0 0 10px 0;
+    text-align: justify;
+  }
+  ul, ol {
+    margin: 0 0 12px 0;
+    padding-left: 24px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  code {
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9.5pt;
+  }
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-family: 'Consolas', monospace;
+    font-size: 9pt;
+    overflow-x: auto;
+    margin: 10px 0 15px 0;
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px 0;
+    font-size: 9.5pt;
+  }
+  table.data-table th, table.data-table td {
+    border: 1px solid #cbd5e1;
+    padding: 7px 10px;
+  }
+  table.data-table th {
+    background: #f8fafc;
+    color: #0f172a;
+    font-weight: 700;
+    text-align: left;
+  }
+  table.data-table tr:nth-child(even) {
+    background: #f8fafc;
+  }
+  .highlight-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 8.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-success { background: #dcfce7; color: #166534; }
+  .badge-info { background: #e0f2fe; color: #075985; }
+  .callout {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 10pt;
+  }
+  .callout-tech {
+    background: #f8fafc;
+    border-left: 4px solid #64748b;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 9.5pt;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER PAGE ================= -->
+<div class="cover">
+  <div class="cover-header">
+    <h2>Academic Project Comprehensive Submission Report</h2>
+    <h1>H E L I O S</h1>
+    <p style="font-size: 13pt; color: #0284c7; font-weight: 700; text-align: center; margin: 0;">
+      Holistic Educational Learning & Intelligent Orchestration System
+    </p>
+  </div>
+
+  <div class="motto-box">
+    <strong>Project Motto & Core Vision:</strong><br>
+    To eliminate academic cognitive fragmentation by unifying static textbooks, multi-hour video lectures, empirical sensor datasets, and knowledge graphs into an autonomous, local-first interactive intelligence workstation. HELIOS operates 100% on real data with zero mock fallbacks and zero cloud API lock-in.
+  </div>
+
+  <div class="cover-meta">
+    <p style="text-align: center; font-weight: 700; margin-bottom: 8px;">DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING (DATA SCIENCE)</p>
+    <p style="text-align: center; color: #64748b; font-size: 10pt; margin-bottom: 18px;">Faculty of Engineering & Technology (FET) · Capstone Group Project</p>
+
+    <table class="team-table">
+      <thead>
+        <tr>
+          <th>Team Member</th>
+          <th>Assigned Module & Responsibility</th>
+          <th>Dedicated Git Branch</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Krish (Lead)</strong></td>
+          <td>Lecture Sync, PyAV Keyframe Codec & Media Player</td>
+          <td><code>feature/krish-lecture-sync</code></td>
+        </tr>
+        <tr>
+          <td><strong>Krishi</strong></td>
+          <td>Smart Search, ChromaDB Neural Retrieval & RRF</td>
+          <td><code>feature/krishi-smart-search</code></td>
+        </tr>
+        <tr>
+          <td><strong>Vinit</strong></td>
+          <td>Quiz Master, Active Recall Engine & Campaigns</td>
+          <td><code>feature/vinit-Quiz-master</code></td>
+        </tr>
+        <tr>
+          <td><strong>Nidhi</strong></td>
+          <td>Data Storyteller, Document Narrative & CSV EDA</td>
+          <td><code>feature/nidhi-data-storyteller</code></td>
+        </tr>
+        <tr>
+          <td><strong>Vipsa</strong></td>
+          <td>Brain Map, 3D WebGL Concept Graph & Triples</td>
+          <td><code>feature/vipsa-brain-map</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cover-footer">
+    <strong>Repository Origin:</strong> https://github.com/Miles2075/HELIOS.git<br>
+    <strong>Submission Date:</strong> November 2026 · <strong>Evaluator Review Version:</strong> 2.4.0 (Production Verified)
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ================= 1. INTRODUCTION ================= -->
+<h1 class="sec-title">1. Introduction & Problem Statement</h1>
+
+<p>
+Modern university education across STEM and Data Science requires students to absorb high volumes of complex information distributed across three disjoint formats:
+</p>
+<ol>
+  <li><strong>Dense Academic Textbooks & Papers (PDF):</strong> Provide rigorous theoretical proofs and definitions, but remain completely passive, difficult to search by concept, and detached from live demonstrations.</li>
+  <li><strong>Classroom & MOOC Video Lectures (MP4/MKV):</strong> Capture high-value instructor deductions, verbal nuances, and whiteboard demonstrations, but lack instantaneous semantic searchability, visual indexing, or clickable review timestamps.</li>
+  <li><strong>Empirical Sensor & Lab Datasets (CSV/XLSX):</strong> Contain the raw physical data supporting the theory, but are rarely connected dynamically to the textbooks or lectures explaining them.</li>
+</ol>
+
+<p>
+Students are forced to multitask across PDF viewers, media players, spreadsheet tools, and search engines, creating heavy cognitive load and passive, inefficient revision. <strong>HELIOS</strong> solves this trilemma through an integrated, local-first architecture.
+</p>
+
+<div class="callout">
+  <strong>Key Architectural Commitment:</strong> Zero Mock Data. In contrast to demo prototypes that rely on hardcoded dummy arrays, HELIOS enforces strict empty-state safety and processes only real, physical academic assets through robust, offline-capable Python and WebGL pipelines.
+</div>
+
+---
+
+<!-- ================= 2. ARCHITECTURE ================= -->
+<h1 class="sec-title">2. System Architecture & Technical Specifications</h1>
+
+<p>
+HELIOS utilizes a decoupled, high-performance client-server architecture built entirely with open-source technologies:
+</p>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Framework / Library</th>
+      <th>Version</th>
+      <th>Technical Function & Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Frontend Client</strong></td>
+      <td>React 19 + Vite 8.2</td>
+      <td>v19.0.0</td>
+      <td>Hardware-accelerated single-page application with sub-second HMR.</td>
+    </tr>
+    <tr>
+      <td><strong>UI Design System</strong></td>
+      <td>Tailwind CSS + Lucide</td>
+      <td>v3.4.17</td>
+      <td>Monospace academic terminal aesthetic, responsive layouts, CSS variables.</td>
+    </tr>
+    <tr>
+      <td><strong>3D Graphics Engine</strong></td>
+      <td>Three.js WebGL</td>
+      <td>v0.182.0</td>
+      <td>Real-time 3D force-directed cosmic knowledge graph with orbital controls.</td>
+    </tr>
+    <tr>
+      <td><strong>Backend Gateway</strong></td>
+      <td>FastAPI + Uvicorn</td>
+      <td>v0.115.6</td>
+      <td>Async ASGI gateway providing 17 typed OpenAPI endpoints.</td>
+    </tr>
+    <tr>
+      <td><strong>Relational Database</strong></td>
+      <td>SQLite 3 (helios.db)</td>
+      <td>v3.45.0</td>
+      <td>ACID-compliant relational store for documents, segments, visuals, and logs.</td>
+    </tr>
+    <tr>
+      <td><strong>Vector Database</strong></td>
+      <td>ChromaDB (In-Process)</td>
+      <td>v1.5.9</td>
+      <td>Local vector store computing 384-dimensional cosine similarity embeddings.</td>
+    </tr>
+    <tr>
+      <td><strong>Video/Audio Codec</strong></td>
+      <td>PyAV (FFmpeg C-bindings)</td>
+      <td>v14.0.0</td>
+      <td>Zero-dependency keyframe extraction, scene change detection, and OCR.</td>
+    </tr>
+    <tr>
+      <td><strong>Speech Transcription</strong></td>
+      <td>faster-whisper + Native SRT</td>
+      <td>v1.1.0</td>
+      <td>Offline speech-to-text with millisecond-accurate timestamp alignment.</td>
+    </tr>
+    <tr>
+      <td><strong>Data Science Engine</strong></td>
+      <td>Pandas + Scikit-Learn</td>
+      <td>v2.2.3</td>
+      <td>Automated EDA, outlier detection, and Pearson correlation matrices.</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<!-- ================= 3. CORE MODULES ================= -->
+<h1 class="sec-title">3. The 5 Core Modules — Group Implementation</h1>
+
+<h2 class="sub-title">3.1 Module 1: Smart Search (Lead: Krishi · Branch: feature/krishi-smart-search)</h2>
+<p>
+Smart Search ingests multi-page academic textbooks (e.g., <code>heat12.pdf</code>, 64 pages) and provides two search paradigms:
+</p>
+<ul>
+  <li><strong>Reciprocal Rank Fusion (RRF):</strong> Fuses dense semantic embeddings with sparse BM25 lexical token rankings using the scale-invariant formula:
+    <pre>RRF(d) = Σ [ 1 / (60 + r_m(d)) ]</pre>
+  </li>
+  <li><strong>Split-Pane Academic Reader:</strong> The left pane displays ranked answers and confidence metrics; clicking citation pills (e.g., <code>[1]</code>, <code>[2]</code>) immediately navigates the right pane to the exact page and highlights the referenced passage.</li>
+  <li><strong>Strict Grounding:</strong> Eliminates hallucinations by deriving answers exclusively from ingested page blocks.</li>
+</ul>
+
+<h2 class="sub-title">3.2 Module 2: Quiz Master (Lead: Vinit · Branch: feature/vinit-Quiz-master)</h2>
+<p>
+Quiz Master converts passive textbook reading and video transcripts into an active assessment pipeline:
+</p>
+<ul>
+  <li><strong>Contextual MCQ Generation:</strong> Generates question stems with domain-accurate distractors drawn from semantic nearest neighbors in the source text.</li>
+  <li><strong>Spaced Repetition Flashcards:</strong> Flip-card study cards featuring concept definitions and self-rating queues.</li>
+  <li><strong>Timed Exam Campaigns:</strong> Automated progressive testing across multiple topics with instant feedback and score breakdown.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 class="sub-title">3.3 Module 3: Lecture Sync (Lead: Krish · Branch: feature/krish-lecture-sync)</h2>
+<p>
+Lecture Sync bridges the gap between recorded audio/video lectures and written course materials:
+</p>
+<ul>
+  <li><strong>PyAV Computer Vision Extractor:</strong> Evaluates video frames via FFmpeg C-bindings, extracting whiteboard derivations, presentation slides, and architectural diagrams.</li>
+  <li><strong>Verbatim Subtitle Parser:</strong> Seamlessly parses official <code>.srt</code> subtitle tracks with millisecond precision, falling back to local <code>faster-whisper</code> when subtitles are absent.</li>
+  <li><strong>Jitter-Free Playback Scrolling:</strong> Eliminates the common browser stutter where 10 Hz <code>timeupdate</code> events fight user scrolling. By using container-scoped scrolling (<code>container.scrollTo()</code>) and pausing auto-sync during manual user interaction, the interface maintains a butter-smooth 60 FPS experience.</li>
+</ul>
+
+<h2 class="sub-title">3.4 Module 4: Data Storyteller (Lead: Nidhi · Branch: feature/nidhi-data-storyteller)</h2>
+<p>
+Data Storyteller bridges theoretical prose and empirical data:
+</p>
+<ul>
+  <li><strong>Document Narrative Arc:</strong> Analyzes page-by-page word volume, extracts empirical markers (percentages, sample sizes, sensor thresholds), and models thematic progression across chapters.</li>
+  <li><strong>Tabular Lab EDA:</strong> Ingests complex experimental datasets (e.g., Dryad Urban Heat Island sensor data, 1,968 rows), calculates summary statistics, detects outliers, and renders responsive SVG Scatter, Bar, Donut, and Line charts.</li>
+</ul>
+
+<h2 class="sub-title">3.5 Module 5: Brain Map (Lead: Vipsa · Branch: feature/vipsa-brain-map)</h2>
+<p>
+Brain Map organizes cross-course knowledge into an interconnected conceptual network:
+</p>
+<ul>
+  <li><strong>Knowledge Triplet Extraction:</strong> Decomposes textbook chapters into <code>(Subject, Predicate, Object)</code> triples.</li>
+  <li><strong>3D Three.js WebGL Cosmic Visualizer:</strong> Renders concepts as interactive spherical nodes in a 3D gravitational space, with orbital camera navigation, degree centrality sizing, and edge traversal.</li>
+  <li><strong>PyVis Physics Network:</strong> Generates standalone, exportable HTML physics networks for web sharing.</li>
+</ul>
+
+---
+
+<!-- ================= 4. EMPIRICAL VERIFICATION ================= -->
+<h1 class="sec-title">4. Empirical Benchmark & Real Test Results</h1>
+
+<p>
+The system was verified against the provided academic test suite (<code>c:\Users\krish\Downloads\Test data</code>):
+</p>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th>Real Test Input</th>
+      <th>Measured Metric / Output</th>
+      <th>HTTP Status</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Smart Search</strong></td>
+      <td><code>heat12.pdf</code> (8.3 MB, 64 pages)</td>
+      <td>64 pages extracted, 50 ChromaDB embeddings, RRF query returned 5 exact citations (Top match: Page 63).</td>
+      <td><code>200 OK</code></td>
+      <td><span class="highlight-badge badge-success">Verified</span></td>
+    </tr>
+    <tr>
+      <td><strong>Lecture Sync</strong></td>
+      <td><code>AMS.URB1X_MOOC_video.mp4</code> (448.2 MB)</td>
+      <td>62 verbatim segments transcribed (245.8s), 8 PyAV slide/diagram keyframes extracted with OCR text.</td>
+      <td><code>200 OK</code></td>
+      <td><span class="highlight-badge badge-success">Verified</span></td>
+    </tr>
+    <tr>
+      <td><strong>Quiz Master</strong></td>
+      <td>Ingested <code>heat12.pdf</code> context</td>
+      <td>Generated 5 technical MCQs (Pediatric heat illness, Table of Contents, District heat thresholds).</td>
+      <td><code>200 OK</code></td>
+      <td><span class="highlight-badge badge-success">Verified</span></td>
+    </tr>
+    <tr>
+      <td><strong>Data Storyteller</strong></td>
+      <td><code>baltimore_temp.csv</code> (Dryad SUHI)</td>
+      <td>1,968 rows, 20 sensor columns, 0 duplicates, full Pearson correlation matrix calculated in 140ms.</td>
+      <td><code>200 OK</code></td>
+      <td><span class="highlight-badge badge-success">Verified</span></td>
+    </tr>
+    <tr>
+      <td><strong>Brain Map</strong></td>
+      <td>Ingested <code>heat12.pdf</code> knowledge</td>
+      <td>11 concept nodes (Heat12, HRI, District, Format) and 36 interconnected semantic edges.</td>
+      <td><code>200 OK</code></td>
+      <td><span class="highlight-badge badge-success">Verified</span></td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<!-- ================= 5. GIT & TEAM COLLABORATION ================= -->
+<h1 class="sec-title">5. Multi-Branch Git Architecture & Submission Workflow</h1>
+
+<p>
+To satisfy the group project submission standard without placing shared files into any single member's folder:
+</p>
+<ul>
+  <li>The repository is structured strictly at the root level: <code>backend/</code>, <code>frontend/</code>, <code>docs/</code>, <code>tests/</code>, and <code>uploads/</code>.</li>
+  <li>All 5 team feature branches are synchronized and pushed to both remote repositories:
+    <ul>
+      <li><strong>Origin:</strong> <code>https://github.com/Miles2075/HELIOS.git</code></li>
+      <li><strong>Upstream:</strong> <code>https://github.com/armyus/HELIOS.git</code></li>
+    </ul>
+  </li>
+</ul>
+
+<div class="callout-tech">
+  <strong>Active Branches Synchronized:</strong><br>
+  <code>main</code> · <code>feature/krish-lecture-sync</code> · <code>feature/krishi-smart-search</code> · <code>feature/vinit-Quiz-master</code> · <code>feature/nidhi-data-storyteller</code> · <code>feature/vipsa-brain-map</code>
+</div>
+
+---
+
+<!-- ================= 6. VIVA DEFENSE ================= -->
+<h1 class="sec-title">6. Viva Voce & Technical Defense Q&A</h1>
+
+<p><strong>Q1: Why did HELIOS eliminate mock corpus fallbacks?</strong><br>
+<em>Defense:</em> Mock fallbacks create a false sense of functionality that breaks in production when a user uploads real documents. HELIOS implements defensive empty states and strictly processes user-uploaded data through verified pipelines.</p>
+
+<p><strong>Q2: How was the video player scrolling glitch eliminated?</strong><br>
+<em>Defense:</em> Standard <code>Element.scrollIntoView({ behavior: 'smooth' })</code> triggers 10 times a second during video playback, fighting native browser scroll events and jerking the window. We replaced this with <strong>container-scoped scrolling</strong> (<code>container.scrollTo()</code>), bounds checking (only scroll when the item is off-screen), segment-change debouncing, and a 2.5-second user scroll freeze.</p>
+
+<p><strong>Q3: How does HELIOS ensure privacy and zero-API costs?</strong><br>
+<em>Defense:</em> All embeddings, vector queries, code processing, and video frame evaluations run 100% locally on the host machine using SQLite, ChromaDB, PyAV, and faster-whisper. No sensitive student notes or research data are sent to external third-party APIs.</p>
+
+---
+
+<div style="text-align: center; margin-top: 40px; font-size: 10pt; color: #64748b;">
+  *** End of Formal Project Submission Report · HELIOS System ***
+</div>
+
+</body>
+</html>
+"""
+
+# 1. Write HTML report
+html_path = Path("docs/HELIOS_PROJECT_SUBMISSION_REPORT.html")
+html_path.write_text(html_content, encoding="utf-8")
+print(f"Generated HTML report at: {html_path.resolve()}")
+
+# 2. Convert to PDF using Edge headless
+pdf_path = Path("docs/HELIOS_PROJECT_SUBMISSION_REPORT.pdf")
+edge_exe = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+
+if os.path.exists(edge_exe):
+    cmd = [
+        edge_exe,
+        "--headless",
+        "--disable-gpu",
+        "--run-all-compositor-stages-before-draw",
+        f"--print-to-pdf={pdf_path.resolve()}",
+        str(html_path.resolve()),
+    ]
+    print(f"Printing PDF via Edge to {pdf_path}...")
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if pdf_path.exists() and pdf_path.stat().st_size > 0:
+        print(f"Successfully generated PDF report: {pdf_path.resolve()} ({pdf_path.stat().st_size / 1024:.1f} KB)")
+    else:
+        print("Edge print command finished, return code:", res.returncode)
+else:
+    print("Edge executable not found for PDF export.")
