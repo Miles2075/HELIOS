@@ -13,7 +13,7 @@ import {
   Search,
   Snowflake,
 } from 'lucide-react'
-import { checkBackendHealth, listDocuments } from './api/client'
+import { checkBackendHealth, listDatasets, listDocuments, listLectures } from './api/client'
 import BrainMap from './components/BrainMap'
 import Dashboard from './components/Dashboard'
 import DataStoryteller from './components/DataStoryteller'
@@ -88,14 +88,34 @@ export default function App() {
       if (mounted) {
         setBackendOnline(res.online)
         if (res.online) {
-          listDocuments()
-            .then((docs) => {
-              if (mounted && docs.length > 0) {
+          Promise.allSettled([listDocuments(), listLectures(), listDatasets()])
+            .then(([docsRes, lecsRes, datasetsRes]) => {
+              if (!mounted) return
+              const docs = docsRes.status === 'fulfilled' ? docsRes.value : []
+              const lecs = lecsRes.status === 'fulfilled' ? lecsRes.value : []
+              const datasets = datasetsRes.status === 'fulfilled' ? datasetsRes.value : []
+
+              if (docs && docs.length > 0) {
                 setDocuments(docs)
                 setActiveDocId((prev) =>
                   docs.some((d) => d.document_id === prev) ? prev : docs[0].document_id
                 )
               }
+
+              const totalDurationSecs = lecs.reduce((acc, l) => acc + (parseFloat(l.duration) || 0), 0)
+              const totalPages = (docs.length > 0 ? docs : INITIAL_DOCUMENTS).reduce(
+                (acc, d) => acc + (d.pages || 1),
+                0
+              )
+
+              setStats((prev) => ({
+                ...prev,
+                documentsCount: docs.length || INITIAL_DOCUMENTS.length,
+                pagesCount: totalPages,
+                lecturesCount: lecs.length || 7,
+                lectureHours: Math.round((totalDurationSecs / 3600) * 10) / 10 || 18.2,
+                datasetsCount: datasets.length || 3,
+              }))
             })
             .catch(() => {})
         }
@@ -140,12 +160,12 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="h-screen w-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--bg-app)', color: 'var(--text-primary)' }}
     >
       {/* TOP HEADER BAR */}
       <header
-        className="h-16 px-4 sm:px-5 border-b flex items-center justify-between gap-3 sticky top-0 z-30 backdrop-blur-md"
+        className="h-16 px-4 sm:px-5 border-b flex items-center justify-between gap-3 shrink-0 z-30 backdrop-blur-md"
         style={{
           background: 'color-mix(in srgb, var(--bg-sidebar) 88%, transparent)',
           borderColor: 'var(--border-subtle)',
@@ -288,11 +308,11 @@ export default function App() {
       </header>
 
       {/* BODY: SIDEBAR RAIL + MAIN CONTENT */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left Icon Rail (Desktop) */}
         <nav
           aria-label="HELIOS Modules"
-          className="hidden sm:flex flex-col items-center gap-2.5 py-4 px-2.5 border-r w-[68px] shrink-0 sticky top-16 h-[calc(100vh-4rem)]"
+          className="hidden sm:flex flex-col items-center gap-2.5 py-4 px-2.5 border-r w-[68px] shrink-0 h-full overflow-y-auto"
           style={{
             background: 'var(--bg-sidebar)',
             borderColor: 'var(--border-subtle)',
@@ -328,7 +348,7 @@ export default function App() {
         </nav>
 
         {/* Main Workspace Viewport */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-7 pt-5 pb-20 sm:pb-8 max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto px-4 sm:px-6 lg:px-7 pt-5 pb-20 sm:pb-8 max-w-[1600px] mx-auto w-full">
           {activeTab === 'dashboard' && (
             <Dashboard
               onNavigate={setActiveTab}

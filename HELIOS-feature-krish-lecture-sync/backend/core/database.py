@@ -1,7 +1,8 @@
 import sqlite3
 from pathlib import Path
 
-DATABASE_PATH = Path("backend/helios.db")
+_PACKAGE_DIR = Path(__file__).resolve().parent.parent  # resolves to backend/
+DATABASE_PATH = _PACKAGE_DIR / "helios.db"
 
 
 def get_connection() -> sqlite3.Connection:

@@ -39,6 +39,15 @@ import {
   listLectures,
 } from '../api/client'
 
+const isGenuineMathLatex = (latex) => {
+  if (!latex || typeof latex !== 'string') return false
+  const lower = latex.toLowerCase()
+  if (['def ', 'solve', 'alpha x', 'beta x', 'gamma', 'print', 'class', 'import', 'return'].some((kw) => lower.includes(kw))) {
+    return false
+  }
+  return ['=', '\\frac', '\\int', '\\sum', '^', '\\vec', '\\cdot'].some((op) => latex.includes(op))
+}
+
 export default function QuizMaster({
   documents = [],
   activeDocId,
@@ -746,8 +755,8 @@ export default function QuizMaster({
                     </div>
                   )}
 
-                  {/* LaTeX Equation Block if present */}
-                  {activeStage.visual?.latex && (
+                  {/* LaTeX Equation Block if present and genuine math */}
+                  {isGenuineMathLatex(activeStage.visual?.latex) && (
                     <div
                       className="p-3.5 rounded-xl border font-mono text-xs flex flex-col gap-1"
                       style={{
@@ -765,7 +774,7 @@ export default function QuizMaster({
                   )}
 
                   {/* Slide Text / Code Snippet if present and not a math formula */}
-                  {!activeStage.visual?.latex && activeStage.visual?.ocr_text && (
+                  {(!isGenuineMathLatex(activeStage.visual?.latex)) && activeStage.visual?.ocr_text && (
                     <div
                       className="p-3.5 rounded-xl border font-mono text-xs flex flex-col gap-1"
                       style={{
@@ -1001,7 +1010,7 @@ export default function QuizMaster({
                   </p>
                 </div>
 
-                {inspectedVisual.latex && (
+                {isGenuineMathLatex(inspectedVisual.latex) && (
                   <div
                     className="p-3.5 rounded-xl border font-mono text-xs flex flex-col gap-1.5"
                     style={{
