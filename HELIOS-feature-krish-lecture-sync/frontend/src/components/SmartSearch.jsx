@@ -438,6 +438,13 @@ export default function SmartSearch({
     }
   }
 
+  // Auto-fetch benchmark data when benchmark modal is opened
+  useEffect(() => {
+    if (showBenchmarkModal && !liveBenchmarkData && !runningBenchmark) {
+      handleRunLiveBenchmark()
+    }
+  }, [showBenchmarkModal])
+
   // Render text with clickable citation pills: [1], [2]
   const renderTextWithCitations = (text, sources = []) => {
     if (!sources || sources.length === 0) return text
@@ -1262,10 +1269,9 @@ export default function SmartSearch({
       {/* V6 BENCHMARK EVALUATION MODAL */}
       {/* ==================================================================== */}
       {showBenchmarkModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div
-            className="w-full max-w-3xl rounded-2xl border p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+            className="w-full max-w-3xl rounded-2xl border p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh] bg-[#111318] border-white/10"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
