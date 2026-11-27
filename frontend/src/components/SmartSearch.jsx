@@ -1068,22 +1068,26 @@ export default function SmartSearch({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <BookOpen className="w-4 h-4 text-cyan-400 shrink-0" />
-                <select
-                  value={activeDoc ? activeDoc.document_id : ''}
-                  onChange={(e) => {
-                    const dId = parseInt(e.target.value, 10)
-                    onSelectDoc?.(dId)
-                    setSearchScope(String(dId))
-                    setCurrentPage(1)
-                  }}
-                  className="text-xs font-bold text-white bg-transparent outline-none cursor-pointer truncate max-w-[200px]"
-                >
-                  {documents.map((d) => (
-                    <option key={d.document_id} value={d.document_id} className="bg-neutral-900 text-white">
-                      {d.filename}
-                    </option>
-                  ))}
-                </select>
+                {documents.length === 0 ? (
+                  <span className="text-xs text-neutral-400 italic">No documents uploaded</span>
+                ) : (
+                  <select
+                    value={activeDoc ? activeDoc.document_id : ''}
+                    onChange={(e) => {
+                      const dId = parseInt(e.target.value, 10)
+                      onSelectDoc?.(dId)
+                      setSearchScope(String(dId))
+                      setCurrentPage(1)
+                    }}
+                    className="text-xs font-bold text-white bg-transparent outline-none cursor-pointer truncate max-w-[200px]"
+                  >
+                    {documents.map((d) => (
+                      <option key={d.document_id} value={d.document_id} className="bg-neutral-900 text-white">
+                        {d.filename}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Stepper Controls */}

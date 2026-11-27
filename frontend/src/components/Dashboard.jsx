@@ -485,23 +485,27 @@ export default function Dashboard({
 
             <h2 className="mt-2 text-lg sm:text-xl font-bold flex items-center gap-2.5 m-0">
               <BookOpen className="w-5 h-5 shrink-0" style={{ color: 'var(--cyan)' }} />
-              <span>Operating Systems (CS-301)</span>
+              <span>{activeDocument ? activeDocument.filename : 'Ready for Study Session'}</span>
             </h2>
 
             <div className="mt-2 flex flex-wrap items-center gap-2.5 text-xs sm:text-sm">
               <span style={{ color: 'var(--text-secondary)' }}>
-                Chapter 6: Concurrency &amp; Locks · Active Textbook: os_three_easy_pieces.pdf
+                {activeDocument
+                  ? `${activeDocument.pages || activeDocument.page_count || 1} pages extracted · Synchronized across all 5 modules`
+                  : 'Upload study textbooks, research PDFs, or lecture recordings to begin.'}
               </span>
-              <span
-                className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold border"
-                style={{
-                  background: 'var(--accent-soft)',
-                  borderColor: 'var(--accent-border)',
-                  color: 'var(--accent-bright)',
-                }}
-              >
-                82% Indexed
-              </span>
+              {activeDocument && (
+                <span
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold border"
+                  style={{
+                    background: 'var(--accent-soft)',
+                    borderColor: 'var(--accent-border)',
+                    color: 'var(--accent-bright)',
+                  }}
+                >
+                  Indexed
+                </span>
+              )}
             </div>
 
             <div
@@ -511,7 +515,7 @@ export default function Dashboard({
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: '82%',
+                  width: activeDocument ? '100%' : '0%',
                   background: 'linear-gradient(90deg, var(--accent), var(--accent-bright))',
                 }}
               />
@@ -524,7 +528,7 @@ export default function Dashboard({
             className="helios-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm cursor-pointer shrink-0"
           >
             <Rocket className="w-4 h-4" />
-            Resume CS-301 Session
+            {activeDocument ? 'Open in Smart Search' : 'Upload in Smart Search'}
           </button>
         </section>
 
@@ -550,58 +554,71 @@ export default function Dashboard({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {COURSES_MASTERY.map((course) => (
-              <div
-                key={course.code}
-                className="p-3.5 rounded-xl border flex flex-col justify-between"
-                style={{
-                  background: 'var(--bg-card-elevated)',
-                  borderColor: 'var(--border-subtle)',
-                }}
-              >
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-mono-code text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      {course.code}
-                    </span>
-                    <span
-                      className="text-xl font-extrabold"
+            {COURSES_MASTERY.length > 0 ? (
+              COURSES_MASTERY.map((course) => (
+                <div
+                  key={course.code}
+                  className="p-3.5 rounded-xl border flex flex-col justify-between"
+                  style={{
+                    background: 'var(--bg-card-elevated)',
+                    borderColor: 'var(--border-subtle)',
+                  }}
+                >
+                  <div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-mono-code text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        {course.code}
+                      </span>
+                      <span
+                        className="text-xl font-extrabold"
+                        style={{
+                          color:
+                            course.progress >= 80
+                              ? 'var(--emerald)'
+                              : course.progress >= 60
+                              ? 'var(--accent-bright)'
+                              : 'var(--gold)',
+                        }}
+                      >
+                        {course.progress}%
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                      {course.title}
+                    </div>
+                  </div>
+
+                  <div
+                    className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
+                    style={{ background: 'var(--bg-app)' }}
+                  >
+                    <div
+                      className="h-full rounded-full"
                       style={{
-                        color:
+                        width: `${course.progress}%`,
+                        background:
                           course.progress >= 80
                             ? 'var(--emerald)'
                             : course.progress >= 60
-                            ? 'var(--accent-bright)'
+                            ? 'var(--accent)'
                             : 'var(--gold)',
                       }}
-                    >
-                      {course.progress}%
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                    {course.title}
+                    />
                   </div>
                 </div>
-
-                <div
-                  className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
-                  style={{ background: 'var(--bg-app)' }}
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${course.progress}%`,
-                      background:
-                        course.progress >= 80
-                          ? 'var(--emerald)'
-                          : course.progress >= 60
-                          ? 'var(--accent)'
-                          : 'var(--gold)',
-                    }}
-                  />
-                </div>
+              ))
+            ) : (
+              <div
+                className="col-span-full p-6 rounded-xl border text-center text-xs"
+                style={{
+                  background: 'var(--bg-card-elevated)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                No course documents indexed yet. Upload course materials in Smart Search to track knowledge mastery.
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>
@@ -674,46 +691,68 @@ export default function Dashboard({
             INDEXED CORPUS DOCUMENT
           </div>
 
-          <div
-            className="p-3.5 rounded-xl border"
-            style={{
-              background: 'var(--bg-card-elevated)',
-              borderColor: 'var(--border-subtle)',
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-              >
-                <FileText className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                  {activeDocument.filename}
-                </div>
-                <div className="text-[11px] flex items-center gap-1 mt-0.5" style={{ color: 'var(--emerald)' }}>
-                  <CheckCircle2 className="w-3 h-3" />
-                  {activeDocument.pages}/{activeDocument.pages} Pages Ingested
-                </div>
-                <div className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
-                  Cosine Embeddings Ready
-                </div>
-              </div>
-            </div>
-
+          {activeDocument ? (
             <div
-              className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
-              style={{ background: 'var(--bg-app)' }}
+              className="p-3.5 rounded-xl border"
+              style={{
+                background: 'var(--bg-card-elevated)',
+                borderColor: 'var(--border-subtle)',
+              }}
             >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                >
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {activeDocument.filename}
+                  </div>
+                  <div className="text-[11px] flex items-center gap-1 mt-0.5" style={{ color: 'var(--emerald)' }}>
+                    <CheckCircle2 className="w-3 h-3" />
+                    {activeDocument.pages || activeDocument.page_count || 1} Pages Ingested
+                  </div>
+                  <div className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
+                    Cosine Embeddings Ready
+                  </div>
+                </div>
+              </div>
+
               <div
-                className="h-full w-full rounded-full"
-                style={{
-                  background: 'linear-gradient(90deg, var(--accent), var(--accent-bright))',
-                }}
-              />
+                className="mt-3 h-1.5 w-full rounded-full overflow-hidden"
+                style={{ background: 'var(--bg-app)' }}
+              >
+                <div
+                  className="h-full w-full rounded-full"
+                  style={{
+                    background: 'linear-gradient(90deg, var(--accent), var(--accent-bright))',
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className="p-4 rounded-xl border text-center"
+              style={{
+                background: 'var(--bg-card-elevated)',
+                borderColor: 'var(--border-subtle)',
+              }}
+            >
+              <p className="text-xs m-0" style={{ color: 'var(--text-muted)' }}>
+                No active document selected.
+              </p>
+              <button
+                type="button"
+                onClick={() => onNavigate('smart-search')}
+                className="mt-2 text-xs font-semibold hover:underline"
+                style={{ color: 'var(--accent-bright)' }}
+              >
+                Upload in Smart Search &rarr;
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Daily Memory Spark */}
@@ -737,44 +776,52 @@ export default function Dashboard({
             </button>
           </div>
 
-          <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-            {currentSpark.question.split(currentSpark.term).map((part, idx, arr) =>
-              idx < arr.length - 1 ? (
-                <span key={idx}>
-                  {part}
-                  <strong style={{ color: 'var(--accent-bright)' }}>{currentSpark.term}</strong>
-                </span>
-              ) : (
-                <span key={idx}>{part}</span>
-              )
-            )}
-          </p>
+          {!currentSpark ? (
+            <p className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              Upload course notes or textbooks in Smart Search to generate your daily memory sparks and revision cards.
+            </p>
+          ) : (
+            <>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                {currentSpark.question.split(currentSpark.term).map((part, idx, arr) =>
+                  idx < arr.length - 1 ? (
+                    <span key={idx}>
+                      {part}
+                      <strong style={{ color: 'var(--accent-bright)' }}>{currentSpark.term}</strong>
+                    </span>
+                  ) : (
+                    <span key={idx}>{part}</span>
+                  )
+                )}
+              </p>
 
-          {revealed && (
-            <div
-              className="mt-3 p-3 rounded-xl text-xs leading-relaxed border"
-              style={{
-                background: 'var(--accent-soft)',
-                borderColor: 'var(--accent-border)',
-                color: 'var(--text-primary)',
-              }}
-            >
-              {currentSpark.answer}
-            </div>
+              {revealed && (
+                <div
+                  className="mt-3 p-3 rounded-xl text-xs leading-relaxed border"
+                  style={{
+                    background: 'var(--accent-soft)',
+                    borderColor: 'var(--accent-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {currentSpark.answer}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleReveal}
+                className="mt-4 w-full py-2.5 px-4 rounded-xl text-sm font-semibold border transition-colors cursor-pointer"
+                style={{
+                  background: revealed ? 'var(--accent-soft)' : 'var(--bg-card-elevated)',
+                  borderColor: 'var(--accent-border)',
+                  color: 'var(--accent-bright)',
+                }}
+              >
+                {revealed ? 'Hide Concept Key' : 'Reveal Concept Key'}
+              </button>
+            </>
           )}
-
-          <button
-            type="button"
-            onClick={handleReveal}
-            className="mt-4 w-full py-2.5 px-4 rounded-xl text-sm font-semibold border transition-colors cursor-pointer"
-            style={{
-              background: revealed ? 'var(--accent-soft)' : 'var(--bg-card-elevated)',
-              borderColor: 'var(--accent-border)',
-              color: 'var(--accent-bright)',
-            }}
-          >
-            {revealed ? 'Hide Answer' : 'Reveal Answer'}
-          </button>
         </div>
 
         {/* Recent Activity */}
@@ -821,7 +868,7 @@ export default function Dashboard({
         <div className="helios-card p-5 grid grid-cols-3 text-center gap-2 border" style={{ borderColor: 'var(--border-subtle)' }}>
           <div>
             <div className="text-2xl font-extrabold font-mono-code" style={{ color: 'var(--accent-bright)' }}>
-              {stats.documentsCount || 7}
+              {stats.documentsCount || 0}
             </div>
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Indexed Docs
@@ -829,7 +876,7 @@ export default function Dashboard({
           </div>
           <div>
             <div className="text-2xl font-extrabold font-mono-code" style={{ color: 'var(--cyan)' }}>
-              {stats.lecturesCount || 7}
+              {stats.lecturesCount || 0}
             </div>
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Sync Lectures
@@ -837,7 +884,7 @@ export default function Dashboard({
           </div>
           <div>
             <div className="text-2xl font-extrabold font-mono-code" style={{ color: 'var(--gold)' }}>
-              {stats.lectureHours ? `${stats.lectureHours}h` : '18.2h'}
+              {stats.lectureHours ? `${stats.lectureHours}h` : '0h'}
             </div>
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Lecture Audio
