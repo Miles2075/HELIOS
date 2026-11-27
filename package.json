@@ -1,0 +1,15 @@
+{
+  "name": "helios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HELIOS Multimodal AI Study Assistant",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev --",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.82.0"
+  }
+}

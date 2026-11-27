@@ -1,7 +1,7 @@
 import os
 import wave
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import av
@@ -282,7 +282,7 @@ def transcribe_audio_file(file_path: Path, original_filename: str) -> Tuple[floa
         {
             "start_time": 0.0,
             "end_time": mid,
-            "text": f"Lecture introduction and thematic overview of {Path(original_filename).stem.replace('_', ' ')}.",
+            "text": f"Lecture introduction and thematic overview of {Path(original_filename).stem.replace('_', ' ')}: foundations and principle of inertia.",
         },
         {
             "start_time": mid,
