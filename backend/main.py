@@ -11,7 +11,11 @@ from backend.core.gemini_client import is_gemini_configured
 from backend.data_storyteller.router import router as data_router
 from backend.lecture_sync.router import router as lecture_router
 from backend.quiz_master.router import router as quiz_router
-from backend.smart_search.routes import router as search_router, sync_sqlite_docs_to_chroma
+from backend.smart_search.routes import (
+    qa_router,
+    router as search_router,
+    sync_sqlite_docs_to_chroma,
+)
 
 # Initialize shared SQLite database (backend/helios.db) on startup
 initialize_database()
@@ -40,8 +44,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all 5 HELIOS modules
+# Register all 5 HELIOS modules + QA Endpoints
 app.include_router(search_router)
+app.include_router(qa_router)
 app.include_router(quiz_router)
 app.include_router(lecture_router)
 app.include_router(data_router)

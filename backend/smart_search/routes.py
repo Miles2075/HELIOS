@@ -965,3 +965,348 @@ def _run_retrieval_benchmark() -> Dict[str, Any]:
 def run_retrieval_benchmark_endpoint():
     """Runs live evaluation battery across all 4 retrieval strategies and returns empirical accuracy metrics."""
     return _run_retrieval_benchmark()
+
+
+# ============================================================================
+# SMART SEARCH QA ENDPOINTS (/api/qa/ask, /api/qa/search-all)
+# ============================================================================
+
+qa_router = APIRouter(prefix="/api/qa", tags=["Smart Search QA"])
+
+
+class QAPageInput(BaseModel):
+    pageNumber: int
+    title: Optional[str] = None
+    content: str
+
+
+class QAHistoryItem(BaseModel):
+    role: str
+    content: str
+
+
+class QAAskBody(BaseModel):
+    documentTitle: Optional[str] = None
+    pages: Optional[List[QAPageInput]] = None
+    question: str
+    history: Optional[List[QAHistoryItem]] = None
+    answerMode: Optional[str] = "direct"
+
+
+class QADocumentInput(BaseModel):
+    id: str
+    title: Optional[str] = None
+    fileName: Optional[str] = None
+    pages: List[QAPageInput] = []
+
+
+class QASearchAllBody(BaseModel):
+    documents: Optional[List[QADocumentInput]] = None
+    question: str
+    history: Optional[List[QAHistoryItem]] = None
+    answerMode: Optional[str] = "direct"
+
+
+def _extract_verbatim_excerpt(text: str, query: str) -> str:
+    """Extracts 1 to 2 complete verbatim sentences from `text` matching query terms."""
+    if not text:
+        return ""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    if not sentences:
+        return text[:240].strip()
+
+    q_tokens = set(re.findall(r"[a-zA-Z0-9]{3,}", query.lower()))
+    best_sent = sentences[0]
+    best_score = -1
+
+    for idx, sent in enumerate(sentences):
+        sent_tokens = set(re.findall(r"[a-zA-Z0-9]{3,}", sent.lower()))
+        score = len(q_tokens & sent_tokens)
+        if score > best_score:
+            best_score = score
+            best_sent = sent
+            if len(sent) < 130 and idx + 1 < len(sentences):
+                best_sent = f"{sent} {sentences[idx + 1]}"
+
+    clean_sent = best_sent.strip()
+    return clean_sent if len(clean_sent) <= 350 else clean_sent[:347] + "..."
+
+
+@qa_router.post("/ask")
+@router.post("/qa/ask")
+def qa_ask(payload: QAAskBody):
+    query = payload.question.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Please enter a question to ask.")
+
+    candidate_pages: List[Dict[str, Any]] = []
+    doc_title = payload.documentTitle or "Study Document"
+
+    if payload.pages and len(payload.pages) > 0:
+        for p in payload.pages:
+            candidate_pages.append(
+                {
+                    "page_number": p.pageNumber,
+                    "title": p.title or f"Page {p.pageNumber}",
+                    "text": p.content,
+                    "filename": doc_title,
+                }
+            )
+    else:
+        conn = get_connection()
+        try:
+            doc_row = conn.execute(
+                "SELECT id, filename FROM documents ORDER BY id LIMIT 1"
+            ).fetchone()
+            if doc_row:
+                doc_id, doc_title = doc_row[0], doc_row[1]
+                pages = conn.execute(
+                    "SELECT page_number, text FROM document_pages WHERE document_id = ? ORDER BY page_number",
+                    (doc_id,),
+                ).fetchall()
+                for pg_num, pg_text in pages:
+                    candidate_pages.append(
+                        {
+                            "page_number": pg_num,
+                            "title": f"Page {pg_num}",
+                            "text": pg_text,
+                            "filename": doc_title,
+                        }
+                    )
+        finally:
+            conn.close()
+
+    if not candidate_pages:
+        return {
+            "answer": "No document content was found to answer this question.",
+            "foundInDocument": False,
+            "citations": [],
+            "followUpQuestions": ["Please upload a document to begin asking questions."],
+        }
+
+    q_words = _tokenize_keywords(query)
+    bm25_matches = _compute_bm25_scores(q_words, candidate_pages)
+
+    top_matches = [m[0] for m in bm25_matches[:4] if m[1] > 0]
+    if not top_matches:
+        top_matches = candidate_pages[:3]
+
+    from backend.core.gemini_client import is_gemini_configured, generate_json
+
+    if is_gemini_configured():
+        context_parts = []
+        for m in top_matches:
+            context_parts.append(f"Page {m['page_number']} ({m['title']}):\n{m['text']}")
+        context_str = "\n\n".join(context_parts)
+
+        prompt = (
+            f"You are HELIOS Smart Search, an academic intelligence assistant.\n"
+            f"Document: {doc_title}\n\n"
+            f"Context Pages:\n{context_str}\n\n"
+            f"Student Question: {query}\n\n"
+            f"Instructions:\n"
+            f"1. Synthesize a direct, grounded answer citing page numbers inline as [p. N].\n"
+            f"2. For citations, extract 1 to 3 supporting items. For each citation, excerpt MUST be a verbatim substring copied directly from that page.\n"
+            f"3. Return strict JSON with keys: answer (string), foundInDocument (bool), citations (list of objects with pageNumber, sectionTitle, excerpt, whyRelevant), followUpQuestions (list of 2-3 strings)."
+        )
+        data = generate_json(prompt)
+        if data and isinstance(data, dict) and "answer" in data:
+            citations = []
+            for idx, c in enumerate(data.get("citations", [])):
+                if isinstance(c, dict):
+                    citations.append(
+                        {
+                            "id": f"cit-{int(time.time()*1000)}-{idx}",
+                            "pageNumber": c.get("pageNumber", 1),
+                            "sectionTitle": c.get("sectionTitle") or f"Page {c.get('pageNumber', 1)}",
+                            "excerpt": c.get("excerpt") or "",
+                            "whyRelevant": c.get("whyRelevant") or "Supporting passage from the document.",
+                        }
+                    )
+            return {
+                "answer": data["answer"],
+                "foundInDocument": data.get("foundInDocument", True),
+                "citations": citations,
+                "followUpQuestions": data.get("followUpQuestions", []),
+            }
+
+    citations = []
+    answer_sentences = []
+
+    for idx, m in enumerate(top_matches[:3], start=1):
+        pg_num = m["page_number"]
+        sec_title = m["title"]
+        verbatim = _extract_verbatim_excerpt(m["text"], query)
+        if verbatim:
+            citations.append(
+                {
+                    "id": f"cit-{int(time.time() * 1000)}-{idx}",
+                    "pageNumber": pg_num,
+                    "sectionTitle": sec_title,
+                    "excerpt": verbatim,
+                    "whyRelevant": f"Directly addresses '{query[:40]}' with primary explanation on page {pg_num}.",
+                }
+            )
+            answer_sentences.append(f"{verbatim} [p. {pg_num}]")
+
+    if not answer_sentences:
+        answer_text = f"The document discusses {doc_title}, but no exact match was found for '{query}'. [p. {top_matches[0]['page_number']}]"
+    else:
+        answer_text = " ".join(answer_sentences[:2])
+
+    follow_ups = [
+        f"How does this relate to other topics in {doc_title}?",
+        f"What are the practical applications or formulas for this concept?",
+        "Can you summarize the primary definitions with page numbers?",
+    ]
+
+    return {
+        "answer": answer_text,
+        "foundInDocument": True,
+        "citations": citations,
+        "followUpQuestions": follow_ups,
+    }
+
+
+@qa_router.post("/search-all")
+@router.post("/qa/search-all")
+def qa_search_all(payload: QASearchAllBody):
+    query = payload.question.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Please enter a keyword, topic, or question to search.")
+
+    candidate_pages: List[Dict[str, Any]] = []
+
+    if payload.documents and len(payload.documents) > 0:
+        for doc in payload.documents:
+            for p in doc.pages:
+                candidate_pages.append(
+                    {
+                        "document_id": doc.id,
+                        "filename": doc.fileName or doc.title or "Document",
+                        "title": doc.title or doc.fileName or "Document",
+                        "page_number": p.pageNumber,
+                        "section_title": p.title or f"Page {p.pageNumber}",
+                        "text": p.content,
+                    }
+                )
+    else:
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                """
+                SELECT dp.document_id, d.filename, dp.page_number, dp.text
+                FROM document_pages dp
+                JOIN documents d ON d.id = dp.document_id
+                ORDER BY dp.document_id, dp.page_number
+                """
+            ).fetchall()
+            for r in rows:
+                candidate_pages.append(
+                    {
+                        "document_id": str(r[0]),
+                        "filename": r[1],
+                        "title": r[1],
+                        "page_number": r[2],
+                        "section_title": f"Page {r[2]}",
+                        "text": r[3],
+                    }
+                )
+        finally:
+            conn.close()
+
+    if not candidate_pages:
+        return {
+            "answer": "No documents are currently indexed in the repository.",
+            "foundInDocument": False,
+            "citations": [],
+            "followUpQuestions": [],
+        }
+
+    q_words = _tokenize_keywords(query)
+    bm25_matches = _compute_bm25_scores(q_words, candidate_pages)
+
+    top_matches = [m[0] for m in bm25_matches[:5] if m[1] > 0]
+    if not top_matches:
+        top_matches = candidate_pages[:3]
+
+    from backend.core.gemini_client import is_gemini_configured, generate_json
+
+    if is_gemini_configured():
+        corpus_parts = []
+        for m in top_matches:
+            corpus_parts.append(
+                f"=== DOCUMENT id=\"{m['document_id']}\" fileName=\"{m['filename']}\" Page={m['page_number']} ===\n{m['text']}"
+            )
+        corpus_str = "\n\n".join(corpus_parts)
+
+        prompt = (
+            f"You are HELIOS Smart Search, searching across all course documents.\n\n"
+            f"Documents Excerpts:\n{corpus_str}\n\n"
+            f"Student Search / Question: {query}\n\n"
+            f"Instructions:\n"
+            f"1. Explain the answer citing documents inline like [{top_matches[0]['filename']} · p. {top_matches[0]['page_number']}].\n"
+            f"2. Return JSON with keys: answer (string), foundInDocument (bool), citations (list of objects with documentId, fileName, documentTitle, pageNumber, sectionTitle, excerpt, whyRelevant), followUpQuestions (list of strings)."
+        )
+        data = generate_json(prompt)
+        if data and isinstance(data, dict) and "answer" in data:
+            citations = []
+            for idx, c in enumerate(data.get("citations", [])):
+                if isinstance(c, dict):
+                    citations.append(
+                        {
+                            "id": f"cit-{int(time.time()*1000)}-{idx}",
+                            "documentId": str(c.get("documentId") or top_matches[0]["document_id"]),
+                            "fileName": c.get("fileName") or top_matches[0]["filename"],
+                            "documentTitle": c.get("documentTitle") or top_matches[0]["title"],
+                            "pageNumber": c.get("pageNumber", 1),
+                            "sectionTitle": c.get("sectionTitle") or f"Page {c.get('pageNumber', 1)}",
+                            "excerpt": c.get("excerpt") or "",
+                            "whyRelevant": c.get("whyRelevant") or "Supporting passage from the document.",
+                        }
+                    )
+            return {
+                "answer": data["answer"],
+                "foundInDocument": data.get("foundInDocument", True),
+                "citations": citations,
+                "followUpQuestions": data.get("followUpQuestions", []),
+            }
+
+    citations = []
+    answer_sentences = []
+
+    for idx, m in enumerate(top_matches[:4], start=1):
+        doc_id = str(m["document_id"])
+        fname = m["filename"]
+        pg_num = m["page_number"]
+        verbatim = _extract_verbatim_excerpt(m["text"], query)
+        if verbatim:
+            citations.append(
+                {
+                    "id": f"cit-{int(time.time()*1000)}-{idx}",
+                    "documentId": doc_id,
+                    "fileName": fname,
+                    "documentTitle": fname,
+                    "pageNumber": pg_num,
+                    "sectionTitle": f"Page {pg_num}",
+                    "excerpt": verbatim,
+                    "whyRelevant": f"Direct match from {fname} regarding '{query[:35]}'.",
+                }
+            )
+            answer_sentences.append(f"{verbatim} [{fname} · p. {pg_num}]")
+
+    if not answer_sentences:
+        answer_text = f"Searched across all repository documents. No explicit reference to '{query}' was found. [{top_matches[0]['filename']} · p. {top_matches[0]['page_number']}]"
+    else:
+        answer_text = " ".join(answer_sentences[:2])
+
+    return {
+        "answer": answer_text,
+        "foundInDocument": True,
+        "citations": citations,
+        "followUpQuestions": [
+            f"How does this relate to other chapters in {top_matches[0]['filename']}?",
+            "What are the core equations or theorems governing this topic?",
+        ],
+    }
+
